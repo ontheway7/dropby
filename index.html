@@ -2,6 +2,7 @@
   가는 길에 (DropBy)
   v1.0 - 2026.03.07  최초 완성 버전
   v2.0 - 2026.03.07  내 장소 기능 추가 (localStorage), 헤더 정리, 찾기 버튼 가림 버그 수정
+  v2.1 - 2026.03.07  출발지 제거 → 현재 위치 자동 사용, 입력창에서 바로 📌 내 장소 저장 기능 추가
 -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -19,214 +20,233 @@
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 <style>
 :root {
-  --bg: #0a0f0d; --surface: #121a14; --card: #1a241c; --border: #253028;
-  --accent: #4ade80; --accent2: #fb923c; --accent3: #38bdf8;
-  --gold: #fbbf24; --text: #e8f5eb; --muted: #5a7a60; --danger: #f87171;
+  --bg:#0a0f0d; --surface:#121a14; --card:#1a241c; --border:#253028;
+  --accent:#4ade80; --accent2:#fb923c; --accent3:#38bdf8;
+  --gold:#fbbf24; --text:#e8f5eb; --muted:#5a7a60; --danger:#f87171;
 }
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html,body { height:100%; background:var(--bg); color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:14px; }
-.app { display:flex; flex-direction:column; height:100vh; max-width:480px; margin:0 auto; position:relative; }
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:14px;}
+.app{display:flex;flex-direction:column;height:100vh;max-width:480px;margin:0 auto;position:relative;}
 
 /* HEADER */
-.header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--bg); border-bottom:1px solid var(--border); flex-shrink:0; z-index:10; }
-.logo { font-family:'Black Han Sans',sans-serif; font-size:1.25rem; letter-spacing:1px; color:var(--accent); }
-.logo span { color:var(--text); }
-.header-btns { display:flex; gap:6px; }
-.btn-header { background:var(--card); border:1px solid var(--border); color:var(--muted); padding:6px 10px; border-radius:8px; font-family:'Noto Sans KR',sans-serif; font-size:0.75rem; cursor:pointer; transition:all 0.15s; }
-.btn-header:hover { border-color:var(--accent); color:var(--accent); }
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10;}
+.logo{font-family:'Black Han Sans',sans-serif;font-size:1.25rem;letter-spacing:1px;color:var(--accent);}
+.logo span{color:var(--text);}
+.btn-header{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:6px 10px;border-radius:8px;font-family:'Noto Sans KR',sans-serif;font-size:0.75rem;cursor:pointer;transition:all 0.15s;}
+.btn-header:hover{border-color:var(--accent);color:var(--accent);}
 
 /* MAP */
-#map { flex:1; min-height:0; position:relative; background:var(--surface); cursor:pointer; }
-#map.fullscreen { position:fixed; inset:0; z-index:100; max-width:100%; cursor:default; }
-.btn-map-close { position:absolute; top:12px; right:12px; z-index:101; background:rgba(10,15,13,0.88); border:1px solid var(--border); color:var(--text); width:36px; height:36px; border-radius:50%; font-size:0.9rem; cursor:pointer; display:none; align-items:center; justify-content:center; }
-#map.fullscreen .btn-map-close { display:flex; }
-.map-empty { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; pointer-events:none; z-index:1; }
-.map-empty.hide { display:none; }
-.map-empty-icon { font-size:2.2rem; opacity:0.4; }
-.map-empty-text { color:var(--muted); font-size:0.78rem; text-align:center; line-height:1.7; }
-.map-stats { position:absolute; top:10px; left:10px; right:10px; background:rgba(10,15,13,0.92); backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:14px; padding:10px 14px; z-index:5; display:none; }
-.map-stats.show { display:flex; }
-.mstat { flex:1; text-align:center; }
-.mstat+.mstat { border-left:1px solid var(--border); }
-.mstat-val { font-family:'Black Han Sans',sans-serif; font-size:1.1rem; color:var(--accent); }
-.mstat-label { font-size:0.62rem; color:var(--muted); margin-top:1px; }
+#map{flex:1;min-height:0;position:relative;background:var(--surface);cursor:pointer;}
+#map.fullscreen{position:fixed;inset:0;z-index:100;max-width:100%;cursor:default;}
+.btn-map-close{position:absolute;top:12px;right:12px;z-index:101;background:rgba(10,15,13,.88);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;font-size:.9rem;cursor:pointer;display:none;align-items:center;justify-content:center;}
+#map.fullscreen .btn-map-close{display:flex;}
+.map-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;pointer-events:none;z-index:1;}
+.map-empty.hide{display:none;}
+.map-empty-icon{font-size:2.2rem;opacity:.4;}
+.map-empty-text{color:var(--muted);font-size:.78rem;text-align:center;line-height:1.7;}
+.map-stats{position:absolute;top:10px;left:10px;right:10px;background:rgba(10,15,13,.92);backdrop-filter:blur(12px);border:1px solid var(--border);border-radius:14px;padding:10px 14px;z-index:5;display:none;}
+.map-stats.show{display:flex;}
+.mstat{flex:1;text-align:center;}
+.mstat+.mstat{border-left:1px solid var(--border);}
+.mstat-val{font-family:'Black Han Sans',sans-serif;font-size:1.1rem;color:var(--accent);}
+.mstat-label{font-size:.62rem;color:var(--muted);margin-top:1px;}
 
-/* BOTTOM - 핵심 수정: flex column으로 버튼 항상 하단 고정 */
-.bottom { background:var(--bg); border-top:1px solid var(--border); flex-shrink:0; display:flex; flex-direction:column; max-height:62vh; position:relative; z-index:25; }
-.bottom-scroll { overflow-y:auto; flex:1; -webkit-overflow-scrolling:touch; }
-.bottom-scroll::-webkit-scrollbar { width:3px; }
-.bottom-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-.handle { display:flex; justify-content:center; padding:8px; flex-shrink:0; }
-.handle-bar { width:32px; height:3px; background:var(--border); border-radius:2px; }
+/* BOTTOM */
+.bottom{background:var(--bg);border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;max-height:62vh;position:relative;z-index:25;}
+.bottom-scroll{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;}
+.bottom-scroll::-webkit-scrollbar{width:3px;}
+.bottom-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.handle{display:flex;justify-content:center;padding:8px;flex-shrink:0;}
+.handle-bar{width:32px;height:3px;background:var(--border);border-radius:2px;}
+
+/* 현재 위치 상태 */
+.loc-status{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;font-size:.82rem;color:var(--muted);transition:all .3s;}
+.loc-status.ok{border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,.06);}
+.loc-status.err{border-color:var(--danger);color:var(--danger);background:rgba(248,113,113,.06);cursor:pointer;}
 
 /* INPUTS */
-.section { padding:0 16px; }
-.section-label { font-size:0.68rem; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; font-weight:500; padding:10px 0 6px; }
-.route-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-.rdot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.rdot.s { background:var(--accent); }
-.rdot.e { background:var(--accent2); }
-.rline-v { width:2px; height:14px; background:var(--border); margin-left:4px; flex-shrink:0; }
-.iw { position:relative; flex:1; }
-.fi { width:100%; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 36px 10px 12px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:0.88rem; outline:none; transition:border-color 0.2s; }
-.fi:focus { border-color:var(--accent); }
-.fi::placeholder { color:var(--muted); }
-.btn-fav-pick { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:1rem; padding:2px; opacity:0.5; transition:opacity 0.15s; z-index:2; }
-.btn-fav-pick:hover { opacity:1; }
-.btn-loc { background:var(--card); border:1px solid var(--border); color:var(--accent); width:38px; height:38px; border-radius:10px; font-size:1rem; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
-.btn-loc:active { transform:scale(0.95); }
-.btn-loc.spinning { animation:spin 0.7s linear infinite; }
+.section{padding:0 16px;}
+.section-label{font-size:.68rem;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-weight:500;padding:10px 0 6px;}
+.route-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.rdot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.rdot.e{background:var(--accent2);}
 
-/* AUTOCOMPLETE */
-.ac-list { position:absolute; left:0; right:0; top:calc(100% + 4px); background:var(--card); border:1px solid var(--accent3); border-radius:10px; overflow:hidden; z-index:999; box-shadow:0 8px 24px rgba(0,0,0,0.6); display:none; }
-.ac-item { padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.15s; }
-.ac-item:last-child { border-bottom:none; }
-.ac-item:hover,.ac-item:active { background:var(--surface); }
-.ac-name { font-weight:500; font-size:0.85rem; }
-.ac-addr { font-size:0.72rem; color:var(--muted); margin-top:2px; }
+/* 입력창 래퍼 - ⭐(불러오기) + 📌(저장) 두 버튼 모두 수용 */
+.iw{position:relative;flex:1;}
+.fi{width:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 70px 10px 12px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:.88rem;outline:none;transition:border-color .2s;}
+.fi:focus{border-color:var(--accent);}
+.fi::placeholder{color:var(--muted);}
 
-/* FAV PICKER */
-.fav-picker { position:absolute; left:0; right:0; top:calc(100% + 4px); background:var(--card); border:1px solid var(--accent); border-radius:10px; overflow:hidden; z-index:1000; box-shadow:0 8px 24px rgba(0,0,0,0.6); display:none; max-height:200px; overflow-y:auto; }
-.fav-picker.show { display:block; }
-.fav-picker-empty { padding:14px; text-align:center; color:var(--muted); font-size:0.78rem; line-height:1.7; }
-.fav-pick-item { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border); transition:background 0.15s; }
-.fav-pick-item:last-child { border-bottom:none; }
-.fav-pick-item:hover { background:var(--surface); }
-.fav-pick-icon { font-size:1.2rem; flex-shrink:0; }
-.fav-pick-name { font-size:0.88rem; font-weight:500; }
-.fav-pick-addr { font-size:0.7rem; color:var(--muted); margin-top:1px; }
+/* ⭐ 불러오기 버튼 */
+.btn-fav-pick{position:absolute;right:36px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;padding:2px;opacity:.5;transition:opacity .15s;z-index:2;}
+.btn-fav-pick:hover{opacity:1;}
+
+/* 📌 저장 버튼 (v2.1 신규) */
+.btn-save-to-fav{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;padding:2px;opacity:.4;transition:all .15s;z-index:2;}
+.btn-save-to-fav:hover{opacity:1;}
+.btn-save-to-fav.active{opacity:1;filter:drop-shadow(0 0 4px var(--accent));}
+
+/* autocomplete */
+.ac-list{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--accent3);border-radius:10px;overflow:hidden;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;}
+.ac-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item:active{background:var(--surface);}
+.ac-name{font-weight:500;font-size:.85rem;}
+.ac-addr{font-size:.72rem;color:var(--muted);margin-top:2px;}
+
+/* ⭐ 즐겨찾기 픽커 (불러오기) */
+.fav-picker{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--accent);border-radius:10px;overflow:hidden;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;max-height:200px;overflow-y:auto;}
+.fav-picker.show{display:block;}
+.fav-picker-empty{padding:14px;text-align:center;color:var(--muted);font-size:.78rem;line-height:1.7;}
+.fav-pick-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;}
+.fav-pick-item:last-child{border-bottom:none;}
+.fav-pick-item:hover{background:var(--surface);}
+.fav-pick-icon{font-size:1.2rem;flex-shrink:0;}
+.fav-pick-name{font-size:.88rem;font-weight:500;}
+.fav-pick-addr{font-size:.7rem;color:var(--muted);margin-top:1px;}
+
+/* 📌 저장 팝업 (v2.1 신규) - 아이콘 선택 + 저장 */
+.save-popup{position:absolute;left:0;right:0;top:calc(100% + 4px);background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:12px;z-index:1001;box-shadow:0 8px 24px rgba(0,0,0,.7);display:none;}
+.save-popup.show{display:block;}
+.save-popup-title{font-size:.72rem;color:var(--muted);margin-bottom:8px;}
+.save-popup-name{font-size:.88rem;font-weight:500;color:var(--text);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.save-icon-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.save-icon-opt{width:32px;height:32px;border:1.5px solid var(--border);border-radius:7px;background:var(--surface);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.save-icon-opt.on{border-color:var(--accent);background:rgba(74,222,128,.15);}
+.save-popup-btns{display:flex;gap:6px;}
+.btn-popup-save{flex:1;padding:8px;background:var(--accent);border:none;border-radius:8px;color:#0a0f0d;font-family:'Black Han Sans',sans-serif;font-size:.82rem;cursor:pointer;}
+.btn-popup-cancel{padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;cursor:pointer;}
 
 /* CATEGORY */
-.cat-scroll { display:flex; gap:7px; overflow-x:auto; padding:4px 0 10px; scrollbar-width:none; }
-.cat-scroll::-webkit-scrollbar { display:none; }
-.cat-chip { display:flex; flex-direction:column; align-items:center; gap:3px; background:var(--card); border:1.5px solid var(--border); border-radius:12px; padding:8px 10px; cursor:pointer; transition:all 0.15s; flex-shrink:0; min-width:56px; font-size:0.68rem; color:var(--muted); }
-.cat-chip .icon { font-size:1.3rem; }
-.cat-chip.on { border-color:var(--accent); color:var(--accent); background:rgba(74,222,128,0.08); }
+.cat-scroll{display:flex;gap:7px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none;}
+.cat-scroll::-webkit-scrollbar{display:none;}
+.cat-chip{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:8px 10px;cursor:pointer;transition:all .15s;flex-shrink:0;min-width:56px;font-size:.68rem;color:var(--muted);}
+.cat-chip .icon{font-size:1.3rem;}
+.cat-chip.on{border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,.08);}
 
 /* SLIDER */
-.slider-row { padding:4px 0 12px; }
-.slider-label { display:flex; justify-content:space-between; font-size:0.78rem; margin-bottom:8px; }
-.slider-label span { color:var(--muted); }
-.slider-label strong { color:var(--accent); font-family:'Black Han Sans',sans-serif; }
-input[type=range] { -webkit-appearance:none; width:100%; height:3px; border-radius:3px; background:var(--border); outline:none; cursor:pointer; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px rgba(74,222,128,0.2); }
+.slider-row{padding:4px 0 12px;}
+.slider-label{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:8px;}
+.slider-label span{color:var(--muted);}
+.slider-label strong{color:var(--accent);font-family:'Black Han Sans',sans-serif;}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;border-radius:3px;background:var(--border);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(74,222,128,.2);}
 
 /* FILTER */
-.filter-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0; border-top:1px solid var(--border); font-size:0.82rem; }
-.toggle { width:38px; height:20px; background:var(--border); border-radius:10px; position:relative; cursor:pointer; transition:background 0.2s; }
-.toggle.on { background:var(--accent); }
-.toggle::after { content:''; position:absolute; width:14px; height:14px; background:#fff; border-radius:50%; top:3px; left:3px; transition:transform 0.2s; }
-.toggle.on::after { transform:translateX(18px); }
+.filter-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-top:1px solid var(--border);font-size:.82rem;}
+.toggle{width:38px;height:20px;background:var(--border);border-radius:10px;position:relative;cursor:pointer;transition:background .2s;}
+.toggle.on{background:var(--accent);}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s;}
+.toggle.on::after{transform:translateX(18px);}
 
-/* CTA - 항상 하단 고정 */
-.cta { padding:10px 16px 14px; flex-shrink:0; background:var(--bg); border-top:1px solid var(--border); }
-.btn-search { width:100%; padding:14px; background:var(--accent); border:none; border-radius:14px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif; font-size:1.05rem; letter-spacing:2px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:8px; }
-.btn-search:hover { background:#6ee79d; }
-.btn-search:active { transform:scale(0.98); }
-.btn-search:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; transform:none; }
+/* CTA */
+.cta{padding:10px 16px 14px;flex-shrink:0;background:var(--bg);border-top:1px solid var(--border);}
+.btn-search{width:100%;padding:14px;background:var(--accent);border:none;border-radius:14px;color:#0a0f0d;font-family:'Black Han Sans',sans-serif;font-size:1.05rem;letter-spacing:2px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-search:hover{background:#6ee79d;}
+.btn-search:active{transform:scale(.98);}
+.btn-search:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;transform:none;}
 
-/* RESULT SHEET */
-.sheet { position:absolute; bottom:0; left:0; right:0; background:var(--bg); border-top:1px solid var(--border); border-radius:20px 20px 0 0; max-height:70vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.4,0,0.2,1); z-index:30; padding-bottom:20px; }
-.sheet.open { transform:translateY(0); }
-.sheet-head { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 10px; position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--border); z-index:1; }
-.sheet-title { font-family:'Black Han Sans',sans-serif; font-size:1rem; color:var(--accent); letter-spacing:1px; }
-.sheet-count { font-size:0.75rem; color:var(--muted); margin-left:6px; }
-.btn-close { background:var(--card); border:none; color:var(--muted); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:0.85rem; }
+/* SHEET */
+.sheet{position:absolute;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--border);border-radius:20px 20px 0 0;max-height:70vh;overflow-y:auto;transform:translateY(100%);transition:transform .32s cubic-bezier(.4,0,.2,1);z-index:30;padding-bottom:20px;}
+.sheet.open{transform:translateY(0);}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);z-index:1;}
+.sheet-title{font-family:'Black Han Sans',sans-serif;font-size:1rem;color:var(--accent);letter-spacing:1px;}
+.sheet-count{font-size:.75rem;color:var(--muted);margin-left:6px;}
+.btn-close{background:var(--card);border:none;color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:.85rem;}
 
 /* RESULT CARDS */
-.result-list { padding:10px 16px 0; }
-.result-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:10px; transition:all 0.2s; position:relative; overflow:hidden; animation:fadeUp 0.3s ease both; }
-@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-.result-card:nth-child(2){animation-delay:0.05s} .result-card:nth-child(3){animation-delay:0.1s} .result-card:nth-child(4){animation-delay:0.15s}
-.result-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent); border-radius:2px 0 0 2px; opacity:0; transition:opacity 0.2s; }
-.result-card:hover { border-color:var(--accent); }
-.result-card:hover::before { opacity:1; }
-.rc-top { display:flex; align-items:flex-start; gap:12px; margin-bottom:10px; }
-.rc-icon { width:42px; height:42px; background:var(--surface); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
-.rc-info { flex:1; }
-.rc-name { font-size:0.9rem; font-weight:700; margin-bottom:2px; }
-.rc-cat { font-size:0.7rem; color:var(--muted); margin-bottom:4px; }
-.rc-rating { display:flex; align-items:center; gap:4px; font-size:0.75rem; }
-.stars { color:var(--gold); } .rating-num { font-family:'Black Han Sans',sans-serif; } .review-cnt { color:var(--muted); }
-.rc-badges { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; }
-.badge { font-size:0.68rem; padding:3px 8px; border-radius:6px; font-weight:500; }
-.badge-detour { background:rgba(56,189,248,0.12); color:var(--accent3); border:1px solid rgba(56,189,248,0.2); }
-.badge-open { background:rgba(74,222,128,0.1); color:var(--accent); border:1px solid rgba(74,222,128,0.2); }
-.badge-closed { background:rgba(248,113,113,0.1); color:var(--danger); border:1px solid rgba(248,113,113,0.2); }
-.badge-hot { background:rgba(251,191,36,0.1); color:var(--gold); border:1px solid rgba(251,191,36,0.2); }
-.rc-addr { font-size:0.72rem; color:var(--muted); }
-.rc-actions { display:flex; gap:6px; margin-top:10px; }
-.btn-rc { flex:1; padding:8px; border-radius:8px; font-size:0.75rem; font-family:'Noto Sans KR',sans-serif; cursor:pointer; transition:all 0.15s; }
-.btn-navi { background:#3A1D94; border:none; color:#fff; font-weight:500; }
-.btn-navi:hover { background:#4c28c4; }
-.btn-add-wp { background:var(--surface); border:1px solid var(--border); color:var(--muted); }
-.btn-add-wp:hover { border-color:var(--accent3); color:var(--accent3); }
-.empty-result { text-align:center; padding:40px 20px; color:var(--muted); font-size:0.82rem; line-height:2; }
-.empty-icon { font-size:2.5rem; margin-bottom:10px; opacity:0.4; }
+.result-list{padding:10px 16px 0;}
+.result-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;transition:all .2s;position:relative;overflow:hidden;animation:fadeUp .3s ease both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.result-card:nth-child(2){animation-delay:.05s}.result-card:nth-child(3){animation-delay:.1s}.result-card:nth-child(4){animation-delay:.15s}
+.result-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent);border-radius:2px 0 0 2px;opacity:0;transition:opacity .2s;}
+.result-card:hover{border-color:var(--accent);}
+.result-card:hover::before{opacity:1;}
+.rc-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:10px;}
+.rc-icon{width:42px;height:42px;background:var(--surface);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.rc-info{flex:1;}
+.rc-name{font-size:.9rem;font-weight:700;margin-bottom:2px;}
+.rc-cat{font-size:.7rem;color:var(--muted);margin-bottom:4px;}
+.rc-rating{display:flex;align-items:center;gap:4px;font-size:.75rem;}
+.stars{color:var(--gold);}.rating-num{font-family:'Black Han Sans',sans-serif;}.review-cnt{color:var(--muted);}
+.rc-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;}
+.badge{font-size:.68rem;padding:3px 8px;border-radius:6px;font-weight:500;}
+.badge-detour{background:rgba(56,189,248,.12);color:var(--accent3);border:1px solid rgba(56,189,248,.2);}
+.badge-open{background:rgba(74,222,128,.1);color:var(--accent);border:1px solid rgba(74,222,128,.2);}
+.badge-closed{background:rgba(248,113,113,.1);color:var(--danger);border:1px solid rgba(248,113,113,.2);}
+.badge-hot{background:rgba(251,191,36,.1);color:var(--gold);border:1px solid rgba(251,191,36,.2);}
+.rc-addr{font-size:.72rem;color:var(--muted);}
+.rc-actions{display:flex;gap:6px;margin-top:10px;}
+.btn-rc{flex:1;padding:8px;border-radius:8px;font-size:.75rem;font-family:'Noto Sans KR',sans-serif;cursor:pointer;transition:all .15s;}
+.btn-navi{background:#3A1D94;border:none;color:#fff;font-weight:500;}
+.btn-navi:hover{background:#4c28c4;}
+.btn-add-wp{background:var(--surface);border:1px solid var(--border);color:var(--muted);}
+.btn-add-wp:hover{border-color:var(--accent3);color:var(--accent3);}
+.empty-result{text-align:center;padding:40px 20px;color:var(--muted);font-size:.82rem;line-height:2;}
+.empty-icon{font-size:2.5rem;margin-bottom:10px;opacity:.4;}
 
 /* LOADING / STATUS */
-.loading { position:absolute; inset:0; background:rgba(10,15,13,0.88); display:none; flex-direction:column; align-items:center; justify-content:center; z-index:40; gap:12px; }
-.loading.show { display:flex; }
-.spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
-@keyframes spin { to{transform:rotate(360deg)} }
-.loading-text { color:var(--muted); font-size:0.82rem; }
-.status-bar { position:absolute; bottom:72px; left:16px; right:16px; background:rgba(26,36,28,0.96); border:1px solid var(--border); border-radius:8px; padding:8px 12px; font-size:0.78rem; color:var(--muted); z-index:10; display:none; text-align:center; }
-.status-bar.show { display:block; }
+.loading{position:absolute;inset:0;background:rgba(10,15,13,.88);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:40;gap:12px;}
+.loading.show{display:flex;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--muted);font-size:.82rem;}
+.status-bar{position:absolute;bottom:72px;left:16px;right:16px;background:rgba(26,36,28,.96);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.78rem;color:var(--muted);z-index:10;display:none;text-align:center;}
+.status-bar.show{display:block;}
 
 /* MODAL */
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:200; display:none; align-items:flex-end; justify-content:center; }
-.modal-overlay.show { display:flex; }
-.modal { background:var(--bg); border-radius:20px 20px 0 0; width:100%; max-width:480px; max-height:85vh; display:flex; flex-direction:column; border-top:1px solid var(--border); animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1); }
-@keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
-.modal-head { display:flex; align-items:center; justify-content:space-between; padding:12px 16px 10px; }
-.modal-title { font-family:'Black Han Sans',sans-serif; font-size:1.05rem; color:var(--accent); letter-spacing:1px; }
-.modal-body { flex:1; overflow-y:auto; padding:0 16px 24px; }
-.tabs { display:flex; gap:6px; margin-bottom:14px; }
-.tab { flex:1; padding:8px; border:1px solid var(--border); background:var(--card); color:var(--muted); border-radius:10px; font-family:'Noto Sans KR',sans-serif; font-size:0.8rem; cursor:pointer; text-align:center; transition:all 0.15s; }
-.tab.on { border-color:var(--accent); color:var(--accent); background:rgba(74,222,128,0.1); }
-.place-list { display:flex; flex-direction:column; gap:6px; }
-.place-item { display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; transition:all 0.15s; }
-.place-item:hover { border-color:var(--accent3); }
-.place-icon { font-size:1.3rem; flex-shrink:0; }
-.place-info { flex:1; min-width:0; }
-.place-name { font-weight:500; font-size:0.88rem; }
-.place-addr { font-size:0.72rem; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.btn-place-del { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.9rem; padding:4px; transition:color 0.15s; flex-shrink:0; }
-.btn-place-del:hover { color:var(--danger); }
-.btn-place-edit { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.9rem; padding:4px; transition:color 0.15s; flex-shrink:0; }
-.btn-place-edit:hover { color:var(--accent3); }
-.edit-place-form { background:var(--surface); border:1px solid var(--accent3); border-radius:12px; padding:14px; margin-top:6px; }
-.edit-btns { display:flex; gap:8px; margin-top:8px; }
-.btn-edit-save { flex:1; padding:9px; background:var(--accent3); border:none; border-radius:8px; color:#000; font-family:'Black Han Sans',sans-serif; font-size:0.82rem; cursor:pointer; }
-.btn-edit-cancel { padding:9px 14px; background:var(--card); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-family:'Noto Sans KR',sans-serif; font-size:0.82rem; cursor:pointer; }
-.place-empty { text-align:center; padding:32px 16px; color:var(--muted); font-size:0.82rem; line-height:1.9; }
-.place-empty-icon { font-size:2rem; margin-bottom:8px; }
-.add-place-form { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px; }
-.form-label { font-size:0.78rem; color:var(--muted); margin-bottom:8px; display:block; }
-.icon-picker { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
-.icon-opt { width:36px; height:36px; border:1.5px solid var(--border); border-radius:8px; background:var(--card); font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
-.icon-opt.on { border-color:var(--accent); background:rgba(74,222,128,0.15); }
-.add-place-input { width:100%; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:9px 12px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:0.85rem; outline:none; margin-bottom:8px; transition:border-color 0.2s; }
-.add-place-input:focus { border-color:var(--accent); }
-.add-place-input::placeholder { color:var(--muted); }
-.btn-add-place { width:100%; padding:10px; background:var(--accent); border:none; border-radius:8px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif; font-size:0.9rem; letter-spacing:1px; cursor:pointer; margin-top:4px; }
-.sheet::-webkit-scrollbar,.modal-body::-webkit-scrollbar { width:3px; }
-.sheet::-webkit-scrollbar-thumb,.modal-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--bg);border-radius:20px 20px 0 0;width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column;border-top:1px solid var(--border);animation:slideUp .3s cubic-bezier(.4,0,.2,1);}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;}
+.modal-title{font-family:'Black Han Sans',sans-serif;font-size:1.05rem;color:var(--accent);letter-spacing:1px;}
+.modal-body{flex:1;overflow-y:auto;padding:0 16px 24px;}
+.tabs{display:flex;gap:6px;margin-bottom:14px;}
+.tab{flex:1;padding:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:10px;font-family:'Noto Sans KR',sans-serif;font-size:.8rem;cursor:pointer;text-align:center;transition:all .15s;}
+.tab.on{border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,.1);}
+.place-list{display:flex;flex-direction:column;gap:6px;}
+.place-item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;transition:all .15s;}
+.place-item:hover{border-color:var(--accent3);}
+.place-icon{font-size:1.3rem;flex-shrink:0;}
+.place-info{flex:1;min-width:0;}
+.place-name{font-weight:500;font-size:.88rem;}
+.place-addr{font-size:.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.btn-place-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:4px;transition:color .15s;flex-shrink:0;}
+.btn-place-del:hover{color:var(--danger);}
+.btn-place-edit{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:4px;transition:color .15s;flex-shrink:0;}
+.btn-place-edit:hover{color:var(--accent3);}
+.edit-place-form{background:var(--surface);border:1px solid var(--accent3);border-radius:12px;padding:14px;margin-top:6px;}
+.edit-btns{display:flex;gap:8px;margin-top:8px;}
+.btn-edit-save{flex:1;padding:9px;background:var(--accent3);border:none;border-radius:8px;color:#000;font-family:'Black Han Sans',sans-serif;font-size:.82rem;cursor:pointer;}
+.btn-edit-cancel{padding:9px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Noto Sans KR',sans-serif;font-size:.82rem;cursor:pointer;}
+.place-empty{text-align:center;padding:32px 16px;color:var(--muted);font-size:.82rem;line-height:1.9;}
+.place-empty-icon{font-size:2rem;margin-bottom:8px;}
+.add-place-form{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.form-label{font-size:.78rem;color:var(--muted);margin-bottom:8px;display:block;}
+.icon-picker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+.icon-opt{width:36px;height:36px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.icon-opt.on{border-color:var(--accent);background:rgba(74,222,128,.15);}
+.add-place-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:.85rem;outline:none;margin-bottom:8px;transition:border-color .2s;}
+.add-place-input:focus{border-color:var(--accent);}
+.add-place-input::placeholder{color:var(--muted);}
+.btn-add-place{width:100%;padding:10px;background:var(--accent);border:none;border-radius:8px;color:#0a0f0d;font-family:'Black Han Sans',sans-serif;font-size:.9rem;letter-spacing:1px;cursor:pointer;margin-top:4px;}
+.sheet::-webkit-scrollbar,.modal-body::-webkit-scrollbar{width:3px;}
+.sheet::-webkit-scrollbar-thumb,.modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
 </head>
 <body>
 <div class="app">
+
   <div class="header">
     <div class="logo">가는 <span>길에</span></div>
-    <div class="header-btns">
-      <button class="btn-header" onclick="openModal()">📌 내 장소</button>
-    </div>
+    <button class="btn-header" onclick="openModal()">📌 내 장소</button>
   </div>
 
   <div id="map">
     <div class="map-empty" id="mapEmpty">
       <div class="map-empty-icon">🗺️</div>
-      <div class="map-empty-text">출발지와 목적지를 입력하고<br>가는 길에 들를 곳을 찾아보세요</div>
+      <div class="map-empty-text">목적지를 입력하고<br>가는 길에 들를 곳을 찾아보세요</div>
     </div>
     <button class="btn-map-close" onclick="closeMapFullscreen()">✕</button>
     <div class="map-stats" id="mapStats">
@@ -239,25 +259,35 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; h
   <div class="bottom" id="bottom">
     <div class="handle"><div class="handle-bar"></div></div>
     <div class="bottom-scroll">
+
       <div class="section">
-        <div class="route-row">
-          <div class="rdot s"></div>
-          <div class="iw">
-            <input class="fi" id="fi-start" placeholder="출발지" autocomplete="off">
-            <button class="btn-fav-pick" onclick="toggleFavPicker('start')" title="내 장소에서 선택">⭐</button>
-            <div class="ac-list" id="ac-start"></div>
-            <div class="fav-picker" id="fav-start"></div>
-          </div>
-          <button class="btn-loc" id="btnLoc" onclick="useCurrentLocation()" title="현재 위치">📍</button>
+        <!-- 현재 위치 상태 -->
+        <div class="loc-status" id="locStatus" onclick="retryLocation()">
+          <span id="locDot">⏳</span>
+          <span id="locText">현재 위치 가져오는 중...</span>
         </div>
-        <div style="display:flex;padding-left:4px;margin-bottom:6px"><div class="rline-v"></div></div>
+
+        <!-- 목적지 입력 -->
         <div class="route-row">
           <div class="rdot e"></div>
-          <div class="iw">
+          <div class="iw" id="iw-end">
             <input class="fi" id="fi-end" placeholder="목적지" autocomplete="off">
+            <!-- ⭐ 불러오기 -->
             <button class="btn-fav-pick" onclick="toggleFavPicker('end')" title="내 장소에서 선택">⭐</button>
+            <!-- 📌 저장 (v2.1) -->
+            <button class="btn-save-to-fav" id="btn-save-end" onclick="toggleSavePopup('end')" title="내 장소에 저장">📌</button>
             <div class="ac-list" id="ac-end"></div>
             <div class="fav-picker" id="fav-end"></div>
+            <!-- 저장 팝업 (v2.1) -->
+            <div class="save-popup" id="save-popup-end">
+              <div class="save-popup-title">내 장소에 저장</div>
+              <div class="save-popup-name" id="save-popup-end-name"></div>
+              <div class="save-icon-row" id="save-icon-row-end"></div>
+              <div class="save-popup-btns">
+                <button class="btn-popup-cancel" onclick="closeSavePopup('end')">취소</button>
+                <button class="btn-popup-save" onclick="confirmSaveToFav('end')">📌 저장</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -265,15 +295,15 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; h
       <div class="section">
         <div class="section-label">🎯 무엇을 찾을까?</div>
         <div class="cat-scroll">
-          <div class="cat-chip on" data-cat="FD6" data-keyword="맛집" onclick="toggleCat(this)"><span class="icon">🍜</span>맛집</div>
-          <div class="cat-chip" data-cat="CE7" data-keyword="카페" onclick="toggleCat(this)"><span class="icon">☕</span>카페</div>
-          <div class="cat-chip" data-cat="OL7" data-keyword="주유소" onclick="toggleCat(this)"><span class="icon">⛽</span>주유소</div>
-          <div class="cat-chip" data-cat="HP8" data-keyword="휴게소" onclick="toggleCat(this)"><span class="icon">🅿️</span>휴게소</div>
-          <div class="cat-chip" data-cat="MT1" data-keyword="마트" onclick="toggleCat(this)"><span class="icon">🛒</span>마트</div>
-          <div class="cat-chip" data-cat="PM9" data-keyword="약국" onclick="toggleCat(this)"><span class="icon">💊</span>약국</div>
-          <div class="cat-chip" data-cat="AT4" data-keyword="관광명소" onclick="toggleCat(this)"><span class="icon">🏛️</span>명소</div>
-          <div class="cat-chip" data-cat="AD5" data-keyword="숙박" onclick="toggleCat(this)"><span class="icon">🏨</span>숙박</div>
-          <div class="cat-chip" data-cat="SW8" data-keyword="지하철역" onclick="toggleCat(this)"><span class="icon">🚉</span>교통</div>
+          <div class="cat-chip on" data-cat="FD6" onclick="toggleCat(this)"><span class="icon">🍜</span>맛집</div>
+          <div class="cat-chip" data-cat="CE7" onclick="toggleCat(this)"><span class="icon">☕</span>카페</div>
+          <div class="cat-chip" data-cat="OL7" onclick="toggleCat(this)"><span class="icon">⛽</span>주유소</div>
+          <div class="cat-chip" data-cat="HP8" onclick="toggleCat(this)"><span class="icon">🅿️</span>휴게소</div>
+          <div class="cat-chip" data-cat="MT1" onclick="toggleCat(this)"><span class="icon">🛒</span>마트</div>
+          <div class="cat-chip" data-cat="PM9" onclick="toggleCat(this)"><span class="icon">💊</span>약국</div>
+          <div class="cat-chip" data-cat="AT4" onclick="toggleCat(this)"><span class="icon">🏛️</span>명소</div>
+          <div class="cat-chip" data-cat="AD5" onclick="toggleCat(this)"><span class="icon">🏨</span>숙박</div>
+          <div class="cat-chip" data-cat="SW8" onclick="toggleCat(this)"><span class="icon">🚉</span>교통</div>
         </div>
       </div>
 
@@ -293,7 +323,6 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; h
       </div>
     </div>
 
-    <!-- 찾기 버튼 항상 고정 -->
     <div class="cta">
       <button class="btn-search" id="btnSearch" onclick="doSearch()">
         <span>🔍</span><span>가는 길에 찾기</span>
@@ -327,14 +356,23 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:20px; h
 </div>
 
 <script>
+// ── 설정 ──
 const KAKAO_KEY = '4d1307b368487f762cb7e2681ede2435';
 const LS_PLACES = 'db_places_v1';
 const ICONS = ['🏠','🌳','🍽️','☕','⛽','🏪','🏥','🏋️','📍','🎯','🏖️','🏔️','🛒','🎠','🏢','🏫','💼','📖'];
+
 let kakaoReady=false, kakaoMap=null, ps=null, geocoder=null;
 let markers=[], polyline=null, coords={}, acTimers={};
+let currentLocation=null;  // 현재 위치 (자동 감지)
 let selectedIcon='📍', addPlaceCoords=null, addPlaceAcTimer=null, editingIcon='📍';
-let searchResult={ startC:null, endC:null, places:[], startName:'', endName:'' };
+let searchResult={ startC:null, endC:null, places:[], endName:'' };
 
+// v2.1: 저장 팝업용 상태
+let savePopupIcon = { end: '📍' };
+// 자동완성으로 선택된 장소 정보 (이름+주소+좌표)
+let selectedPlace = { end: null };
+
+// ── SDK 로드 ──
 function loadKakaoSDK() {
   return new Promise((resolve,reject) => {
     if (window.kakao && window.kakao.maps) { resolve(); return; }
@@ -356,20 +394,51 @@ async function initApp() {
     geocoder = new kakao.maps.services.Geocoder();
     kakao.maps.event.addListener(kakaoMap, 'click', openMapFullscreen);
     if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_KEY);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        kakaoMap.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
-        kakaoMap.setLevel(8);
-        reverseGeocode(pos.coords.latitude, pos.coords.longitude, addr => {
-          document.getElementById('fi-start').value = addr;
-          coords[addr] = { lat:pos.coords.latitude, lng:pos.coords.longitude };
-        });
-      });
-    }
-    setupInputs(); hideStatus(); setupBackGuard();
+    fetchCurrentLocation();
+    setupInputs();
+    hideStatus();
+    setupBackGuard();
   } catch(e) { showStatus('⚠️ 지도 로드 실패'); }
 }
 
+// ── 현재 위치 자동 감지 ──
+function fetchCurrentLocation() {
+  const dot=document.getElementById('locDot'), text=document.getElementById('locText'), status=document.getElementById('locStatus');
+  dot.textContent='⏳'; text.textContent='현재 위치 가져오는 중...';
+  status.classList.remove('ok','err');
+  if (!navigator.geolocation) {
+    status.classList.add('err'); dot.textContent='❌'; text.textContent='위치 서비스를 사용할 수 없습니다'; return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      currentLocation = { lat:pos.coords.latitude, lng:pos.coords.longitude };
+      kakaoMap.setCenter(new kakao.maps.LatLng(currentLocation.lat, currentLocation.lng));
+      kakaoMap.setLevel(8);
+      reverseGeocode(currentLocation.lat, currentLocation.lng, addr => {
+        status.classList.add('ok'); dot.textContent='📍'; text.textContent=addr;
+      });
+    },
+    err => {
+      status.classList.add('err'); dot.textContent='❌'; text.textContent='위치를 가져올 수 없어요  ·  탭해서 재시도';
+    },
+    { enableHighAccuracy:true, timeout:15000 }
+  );
+}
+function retryLocation() {
+  const status=document.getElementById('locStatus');
+  if (status.classList.contains('err')) fetchCurrentLocation();
+}
+
+function reverseGeocode(lat, lng, cb) {
+  if (!geocoder) { cb('현재 위치'); return; }
+  geocoder.coord2Address(lng, lat, (result,status) => {
+    cb(status===kakao.maps.services.Status.OK && result.length
+      ? (result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name)
+      : '현재 위치');
+  });
+}
+
+// ── 유틸 ──
 function showStatus(msg) { const el=document.getElementById('statusBar'); el.textContent=msg; el.classList.add('show'); }
 function hideStatus() { document.getElementById('statusBar').classList.remove('show'); }
 function showLoading(msg='검색 중...') { document.getElementById('loadingText').textContent=msg; document.getElementById('loading').classList.add('show'); }
@@ -377,47 +446,28 @@ function hideLoading() { document.getElementById('loading').classList.remove('sh
 function loadPlaces() { try { return JSON.parse(localStorage.getItem(LS_PLACES))||[]; } catch { return []; } }
 function savePlaces(a) { localStorage.setItem(LS_PLACES, JSON.stringify(a)); }
 
-function useCurrentLocation() {
-  if (!navigator.geolocation) { alert('위치 서비스를 사용할 수 없습니다.'); return; }
-  const btn=document.getElementById('btnLoc');
-  btn.classList.add('spinning'); btn.disabled=true;
-  navigator.geolocation.getCurrentPosition(
-    pos => { btn.classList.remove('spinning'); btn.disabled=false;
-      reverseGeocode(pos.coords.latitude, pos.coords.longitude, addr => {
-        document.getElementById('fi-start').value=addr;
-        coords[addr]={ lat:pos.coords.latitude, lng:pos.coords.longitude };
-      });
-    },
-    err => { btn.classList.remove('spinning'); btn.disabled=false; alert('위치 오류: '+err.message); },
-    { enableHighAccuracy:true, timeout:15000 }
-  );
-}
-
-function reverseGeocode(lat, lng, cb) {
-  if (!geocoder) { cb('현재 위치'); return; }
-  geocoder.coord2Address(lng, lat, (result, status) => {
-    if (status===kakao.maps.services.Status.OK && result.length) {
-      cb(result[0].road_address ? result[0].road_address.address_name : result[0].address.address_name);
-    } else cb('현재 위치');
-  });
-}
-
-function setupInputs() { setupAC('fi-start','ac-start'); setupAC('fi-end','ac-end'); }
-function setupAC(inputId, acId) {
+// ── 자동완성 ──
+function setupInputs() { setupAC('fi-end','ac-end','end'); }
+function setupAC(inputId, acId, fieldKey) {
   const input=document.getElementById(inputId), acEl=document.getElementById(acId);
   let isComposing=false;
   input.addEventListener('compositionstart', ()=>isComposing=true);
   input.addEventListener('compositionend', ()=>{ isComposing=false; triggerAC(input,acEl,inputId); });
-  input.addEventListener('input', ()=>{ if(!isComposing) triggerAC(input,acEl,inputId); });
+  input.addEventListener('input', ()=>{
+    if (!isComposing) triggerAC(input,acEl,inputId);
+    // 직접 타이핑하면 저장 버튼 비활성화
+    selectedPlace[fieldKey]=null;
+    document.getElementById('btn-save-'+fieldKey).classList.remove('active');
+  });
   input.addEventListener('blur', ()=>setTimeout(()=>acEl.style.display='none',200));
 }
 function triggerAC(input, acEl, key) {
   clearTimeout(acTimers[key]);
   const val=input.value.trim();
   if (val.length<2) { acEl.style.display='none'; return; }
-  acTimers[key]=setTimeout(()=>searchAC(val,acEl,input), 280);
+  acTimers[key]=setTimeout(()=>searchAC(val,acEl,input,key),280);
 }
-function searchAC(query, acEl, input) {
+function searchAC(query, acEl, input, fieldKey) {
   if (!ps) return;
   ps.keywordSearch(query, (data,status) => {
     if (status!==kakao.maps.services.Status.OK||!data.length) { acEl.style.display='none'; return; }
@@ -425,22 +475,33 @@ function searchAC(query, acEl, input) {
     data.slice(0,5).forEach(p => {
       const item=document.createElement('div'); item.className='ac-item';
       item.innerHTML=`<div class="ac-name">${p.place_name}</div><div class="ac-addr">${p.road_address_name||p.address_name}</div>`;
-      item.addEventListener('mousedown', e=>{ e.preventDefault(); input.value=p.place_name; coords[p.place_name]={lat:parseFloat(p.y),lng:parseFloat(p.x)}; acEl.style.display='none'; });
+      item.addEventListener('mousedown', e=>{
+        e.preventDefault();
+        input.value=p.place_name;
+        const c={lat:parseFloat(p.y),lng:parseFloat(p.x)};
+        coords[p.place_name]=c;
+        acEl.style.display='none';
+        // v2.1: 자동완성으로 선택된 장소 저장 → 📌 버튼 활성화
+        if (fieldKey) {
+          selectedPlace[fieldKey]={ name:p.place_name, addr:p.road_address_name||p.address_name, lat:c.lat, lng:c.lng };
+          document.getElementById('btn-save-'+fieldKey).classList.add('active');
+        }
+      });
       acEl.appendChild(item);
     });
     acEl.style.display='block';
   });
 }
 
+// ── ⭐ 즐겨찾기 픽커 (불러오기) ──
 function toggleFavPicker(type) {
   const picker=document.getElementById('fav-'+type), isOpen=picker.classList.contains('show');
-  closeAllPickers();
+  closeAllDropdowns();
   if (!isOpen) { renderFavPicker(picker,type); picker.classList.add('show'); }
 }
-function closeAllPickers() { document.querySelectorAll('.fav-picker').forEach(p=>p.classList.remove('show')); }
 function renderFavPicker(picker, type) {
   const places=loadPlaces();
-  if (!places.length) { picker.innerHTML=`<div class="fav-picker-empty">저장된 장소가 없어요<br><small>📌 내 장소에서 추가하세요</small></div>`; return; }
+  if (!places.length) { picker.innerHTML=`<div class="fav-picker-empty">저장된 장소가 없어요<br><small>📌 버튼으로 바로 저장하세요</small></div>`; return; }
   picker.innerHTML=places.map((p,i)=>`
     <div class="fav-pick-item" onclick="selectFavPlace('${type}',${i})">
       <div class="fav-pick-icon">${p.icon}</div>
@@ -449,22 +510,89 @@ function renderFavPicker(picker, type) {
 }
 function selectFavPlace(type, idx) {
   const p=loadPlaces()[idx]; if(!p) return;
-  document.getElementById(type==='start'?'fi-start':'fi-end').value=p.name;
-  if (p.lat&&p.lng) coords[p.name]={lat:p.lat,lng:p.lng};
-  closeAllPickers();
+  document.getElementById('fi-'+type).value=p.name;
+  if (p.lat&&p.lng) {
+    coords[p.name]={lat:p.lat,lng:p.lng};
+    selectedPlace[type]={ name:p.name, addr:p.addr, lat:p.lat, lng:p.lng };
+    document.getElementById('btn-save-'+type).classList.add('active');
+  }
+  closeAllDropdowns();
 }
-document.addEventListener('click', e=>{ if(!e.target.closest('.iw')) closeAllPickers(); });
 
+// ── 📌 저장 팝업 (v2.1 신규) ──
+function toggleSavePopup(fieldKey) {
+  const popup=document.getElementById('save-popup-'+fieldKey);
+  const isOpen=popup.classList.contains('show');
+  closeAllDropdowns();
+  if (isOpen) return;
+
+  const place=selectedPlace[fieldKey];
+  const inputVal=document.getElementById('fi-'+fieldKey).value.trim();
+  if (!inputVal) { showStatus('먼저 목적지를 입력해주세요'); setTimeout(hideStatus,2000); return; }
+
+  // 이름/주소 표시
+  const nameEl=document.getElementById('save-popup-'+fieldKey+'-name');
+  nameEl.textContent=place ? place.name : inputVal;
+
+  // 아이콘 선택 렌더
+  savePopupIcon[fieldKey]='📍';
+  const iconRow=document.getElementById('save-icon-row-'+fieldKey);
+  iconRow.innerHTML=ICONS.map(ic=>`<div class="save-icon-opt${ic==='📍'?' on':''}" onclick="selectSaveIcon('${fieldKey}','${ic}',this)">${ic}</div>`).join('');
+
+  popup.classList.add('show');
+}
+function selectSaveIcon(fieldKey, ic, el) {
+  savePopupIcon[fieldKey]=ic;
+  const row=document.getElementById('save-icon-row-'+fieldKey);
+  row.querySelectorAll('.save-icon-opt').forEach(o=>o.classList.remove('on'));
+  el.classList.add('on');
+}
+function closeSavePopup(fieldKey) {
+  document.getElementById('save-popup-'+fieldKey).classList.remove('show');
+}
+function confirmSaveToFav(fieldKey) {
+  const place=selectedPlace[fieldKey];
+  const inputVal=document.getElementById('fi-'+fieldKey).value.trim();
+  if (!inputVal) return;
+
+  const name = place ? place.name : inputVal;
+  const addr = place ? place.addr : inputVal;
+  const lat  = place ? place.lat : null;
+  const lng  = place ? place.lng : null;
+
+  // 중복 체크
+  const places=loadPlaces();
+  if (places.find(p=>p.name===name)) {
+    showStatus(`"${name}"은 이미 저장되어 있어요`); setTimeout(hideStatus,2500);
+    closeSavePopup(fieldKey); return;
+  }
+
+  places.push({ icon:savePopupIcon[fieldKey], name, addr, lat, lng });
+  savePlaces(places);
+  if (lat&&lng) coords[name]={lat,lng};
+  closeSavePopup(fieldKey);
+  showStatus(`✅ "${name}" 내 장소에 저장됐어요`); setTimeout(hideStatus,2500);
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.fav-picker').forEach(p=>p.classList.remove('show'));
+  document.querySelectorAll('.save-popup').forEach(p=>p.classList.remove('show'));
+  document.querySelectorAll('.ac-list').forEach(p=>p.style.display='none');
+}
+document.addEventListener('click', e=>{ if(!e.target.closest('.iw')) closeAllDropdowns(); });
+
+// ── 카테고리 / 슬라이더 ──
 function toggleCat(el) { el.classList.toggle('on'); if(!document.querySelectorAll('.cat-chip.on').length) el.classList.add('on'); }
 function getActiveCats() {
   return Array.from(document.querySelectorAll('.cat-chip.on')).map(el=>({
-    cat:el.dataset.cat, keyword:el.dataset.keyword,
+    cat:el.dataset.cat,
     icon:el.querySelector('.icon').textContent,
     label:el.textContent.replace(el.querySelector('.icon').textContent,'').trim()
   }));
 }
 function updateDetour(val) { document.getElementById('detourVal').textContent=val+'분'; }
 
+// ── 좌표 / 거리 ──
 function getCoords(name) {
   if (coords[name]) return Promise.resolve(coords[name]);
   return new Promise(resolve => {
@@ -473,8 +601,7 @@ function getCoords(name) {
         const c={lat:parseFloat(data[0].y),lng:parseFloat(data[0].x)}; coords[name]=c; resolve(c);
       } else {
         geocoder.addressSearch(name, (d,s2) => {
-          if (s2===kakao.maps.services.Status.OK&&d.length) { const c={lat:parseFloat(d[0].y),lng:parseFloat(d[0].x)}; coords[name]=c; resolve(c); }
-          else resolve(null);
+          resolve(s2===kakao.maps.services.Status.OK&&d.length ? {lat:parseFloat(d[0].y),lng:parseFloat(d[0].x)} : null);
         });
       }
     });
@@ -487,11 +614,12 @@ function distKm(a,b) {
 }
 function interpolateRoute(s,e,steps=4) {
   const pts=[];
-  for(let i=0;i<=steps;i++) { const t=i/steps; pts.push({lat:s.lat+(e.lat-s.lat)*t,lng:s.lng+(e.lng-s.lng)*t}); }
+  for(let i=0;i<=steps;i++){const t=i/steps;pts.push({lat:s.lat+(e.lat-s.lat)*t,lng:s.lng+(e.lng-s.lng)*t});}
   return pts;
 }
-function calcDetourMin(s,e,p) { return Math.round(Math.max(0,distKm(s,p)+distKm(p,e)-distKm(s,e))/40*60); }
+function calcDetourMin(s,e,p){return Math.round(Math.max(0,distKm(s,p)+distKm(p,e)-distKm(s,e))/40*60);}
 
+// ── 장소 검색 ──
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetour) {
   const midPoints=interpolateRoute(startC,endC,4);
   const radius=Math.min(20000,maxDetour*40*1000/60);
@@ -501,15 +629,15 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetour) {
       await new Promise(resolve => {
         ps.categorySearch(cat.cat, (data,status) => {
           if (status===kakao.maps.services.Status.OK) {
-            data.forEach(p => {
-              if (seen.has(p.id)) return; seen.add(p.id);
+            data.forEach(p=>{
+              if(seen.has(p.id)) return; seen.add(p.id);
               const placeC={lat:parseFloat(p.y),lng:parseFloat(p.x)};
               const detourMin=calcDetourMin(startC,endC,placeC);
-              if (detourMin<=maxDetour) results.push({ id:p.id, name:p.place_name, cat:cat.label, icon:cat.icon, addr:p.road_address_name||p.address_name, lat:placeC.lat, lng:placeC.lng, detourMin, detourKm:(detourMin*40/60).toFixed(1) });
+              if(detourMin<=maxDetour) results.push({id:p.id,name:p.place_name,cat:cat.label,icon:cat.icon,addr:p.road_address_name||p.address_name,lat:placeC.lat,lng:placeC.lng,detourMin,detourKm:(detourMin*40/60).toFixed(1)});
             });
           }
           resolve();
-        }, { location:new kakao.maps.LatLng(point.lat,point.lng), radius:Math.round(radius), sort:kakao.maps.services.SortBy.ACCURACY });
+        }, {location:new kakao.maps.LatLng(point.lat,point.lng),radius:Math.round(radius),sort:kakao.maps.services.SortBy.ACCURACY});
       });
     }
   }
@@ -517,47 +645,47 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetour) {
   return results;
 }
 
+// ── 메인 검색 ──
 async function doSearch() {
   if (!kakaoReady) { alert('지도가 로딩 중입니다.'); return; }
-  const startName=document.getElementById('fi-start').value.trim();
+  if (!currentLocation) { alert('현재 위치를 가져오는 중이에요. 잠시 후 다시 시도해주세요.'); return; }
   const endName=document.getElementById('fi-end').value.trim();
-  if (!startName) { alert('출발지를 입력해주세요'); return; }
   if (!endName) { alert('목적지를 입력해주세요'); return; }
   const cats=getActiveCats();
   if (!cats.length) { alert('카테고리를 선택해주세요'); return; }
   const maxDetour=parseInt(document.getElementById('detourSlider').value);
   document.getElementById('btnSearch').disabled=true;
-  showLoading('출발지 검색 중...');
+  showLoading('목적지 검색 중...');
   try {
-    const startC=await getCoords(startName); if(!startC){alert(`"${startName}"을 찾을 수 없습니다`);return;}
-    showLoading('목적지 검색 중...');
-    const endC=await getCoords(endName); if(!endC){alert(`"${endName}"을 찾을 수 없습니다`);return;}
+    const startC=currentLocation;
+    const endC=await getCoords(endName);
+    if (!endC) { alert(`"${endName}"을 찾을 수 없습니다`); return; }
     showLoading('경로 주변 장소 탐색 중...');
     const places=await searchPlacesAlongRoute(startC,endC,cats,maxDetour);
-    searchResult={startC,endC,places,startName,endName};
+    searchResult={startC,endC,places,endName};
     drawRoute(startC,endC,places);
     showResults(places);
   } catch(e){alert('오류: '+e.message);}
   finally{hideLoading();document.getElementById('btnSearch').disabled=false;}
 }
 
+// ── 지도 ──
 function drawRoute(startC,endC,places) {
   markers.forEach(m=>m.setMap(null)); markers=[];
   if(polyline) polyline.setMap(null);
   const sLL=new kakao.maps.LatLng(startC.lat,startC.lng), eLL=new kakao.maps.LatLng(endC.lat,endC.lng);
-  polyline=new kakao.maps.Polyline({map:kakaoMap,path:[sLL,eLL],strokeWeight:4,strokeColor:'#4ade80',strokeOpacity:0.7,strokeStyle:'dashed'});
-  const mk=(ll,html)=>{ const o=new kakao.maps.CustomOverlay({map:kakaoMap,position:ll,content:html,yAnchor:1.5}); markers.push(o); };
-  mk(sLL,`<div style="background:#4ade80;color:#0a0f0d;padding:4px 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.4)">출발</div>`);
-  mk(eLL,`<div style="background:#fb923c;color:#fff;padding:4px 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.4)">도착</div>`);
+  polyline=new kakao.maps.Polyline({map:kakaoMap,path:[sLL,eLL],strokeWeight:4,strokeColor:'#4ade80',strokeOpacity:.7,strokeStyle:'dashed'});
+  const mk=(ll,html)=>{markers.push(new kakao.maps.CustomOverlay({map:kakaoMap,position:ll,content:html,yAnchor:1.5}));};
+  mk(sLL,`<div style="background:#4ade80;color:#0a0f0d;padding:4px 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.4)">📍 현재위치</div>`);
+  mk(eLL,`<div style="background:#fb923c;color:#fff;padding:4px 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.4)">도착</div>`);
   places.slice(0,10).forEach(p=>{
-    const o=new kakao.maps.CustomOverlay({map:kakaoMap,position:new kakao.maps.LatLng(p.lat,p.lng),content:`<div style="background:#1a241c;border:1.5px solid #4ade80;color:#4ade80;padding:3px 7px;border-radius:8px;font-size:10px;font-family:sans-serif;box-shadow:0 2px 6px rgba(0,0,0,0.5);white-space:nowrap">${p.icon} ${p.name}</div>`,yAnchor:1.4});
-    markers.push(o);
+    markers.push(new kakao.maps.CustomOverlay({map:kakaoMap,position:new kakao.maps.LatLng(p.lat,p.lng),content:`<div style="background:#1a241c;border:1.5px solid #4ade80;color:#4ade80;padding:3px 7px;border-radius:8px;font-size:10px;font-family:sans-serif;box-shadow:0 2px 6px rgba(0,0,0,.5);white-space:nowrap">${p.icon} ${p.name}</div>`,yAnchor:1.4}));
   });
   const bounds=new kakao.maps.LatLngBounds();
   bounds.extend(sLL); bounds.extend(eLL);
   places.slice(0,10).forEach(p=>bounds.extend(new kakao.maps.LatLng(p.lat,p.lng)));
   kakaoMap.setBounds(bounds);
-  const totalKm=distKm(startC,endC)*1.25, totalMin=Math.round(totalKm/40*60);
+  const totalKm=distKm(startC,endC)*1.25,totalMin=Math.round(totalKm/40*60);
   document.getElementById('sDist').textContent=totalKm.toFixed(1)+'km';
   document.getElementById('sTime').textContent=Math.floor(totalMin/60)+'h'+(totalMin%60)+'m';
   document.getElementById('sFound').textContent=places.length+'곳';
@@ -565,6 +693,7 @@ function drawRoute(startC,endC,places) {
   document.getElementById('mapEmpty').classList.add('hide');
 }
 
+// ── 결과 ──
 function showResults(places) {
   const list=document.getElementById('resultList');
   list.innerHTML='';
@@ -573,8 +702,8 @@ function showResults(places) {
     list.innerHTML=`<div class="empty-result"><div class="empty-icon">🔍</div><div>가는 길에 들를 곳을 찾지 못했어요<br>우회 시간을 늘리거나 다른 카테고리를 선택해보세요</div></div>`;
   } else {
     places.forEach((p,i)=>{
-      const isOpen=Math.random()>0.3, rating=(3.8+Math.random()*1.2).toFixed(1), reviews=Math.floor(Math.random()*500+30);
-      const card=document.createElement('div'); card.className='result-card'; card.style.animationDelay=(i*0.05)+'s';
+      const isOpen=Math.random()>.3,rating=(3.8+Math.random()*1.2).toFixed(1),reviews=Math.floor(Math.random()*500+30);
+      const card=document.createElement('div'); card.className='result-card'; card.style.animationDelay=(i*.05)+'s';
       card.innerHTML=`
         <div class="rc-top">
           <div class="rc-icon">${p.icon}</div>
@@ -601,10 +730,11 @@ function showResults(places) {
   document.getElementById('bottom').style.display='none';
 }
 
-function closeSheet() { document.getElementById('sheet').classList.remove('open'); document.getElementById('bottom').style.display=''; }
+function closeSheet(){document.getElementById('sheet').classList.remove('open');document.getElementById('bottom').style.display='';}
 
+// ── 내비 ──
 function naviToPlace(idx) {
-  const place=searchResult.places[idx], {endC,endName}=searchResult;
+  const place=searchResult.places[idx],{endC,endName}=searchResult;
   if(!place) return;
   if(!window.Kakao||!Kakao.isInitialized()) Kakao.init(KAKAO_KEY);
   try { Kakao.Navi.start({name:endName||'목적지',x:endC.lng,y:endC.lat,coordType:'wgs84',viaPoints:[{name:place.name,x:place.lng,y:place.lat}]}); }
@@ -612,16 +742,18 @@ function naviToPlace(idx) {
 }
 function copyToRouteMaster(idx) {
   const place=searchResult.places[idx]; if(!place) return;
-  const params=new URLSearchParams({start:searchResult.startName||'',end:searchResult.endName||'',via:place.name});
+  const params=new URLSearchParams({end:searchResult.endName||'',via:place.name});
   showStatus('📋 루트마스터로 이동 중...'); setTimeout(()=>{ window.location.href=`https://ontheway7.github.io/routemaster?${params}`; },500);
 }
 
-function openMapFullscreen() { document.getElementById('map').classList.add('fullscreen'); setTimeout(()=>kakaoMap.relayout(),300); }
-function closeMapFullscreen() { document.getElementById('map').classList.remove('fullscreen'); setTimeout(()=>kakaoMap.relayout(),300); }
+// ── 지도 전체화면 ──
+function openMapFullscreen(){document.getElementById('map').classList.add('fullscreen');setTimeout(()=>kakaoMap.relayout(),300);}
+function closeMapFullscreen(){document.getElementById('map').classList.remove('fullscreen');setTimeout(()=>kakaoMap.relayout(),300);}
 
-function openModal() { renderPlacesModal(); document.getElementById('modalOverlay').classList.add('show'); }
-function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
-function handleOverlayClick(e) { if(e.target===document.getElementById('modalOverlay')) closeModal(); }
+// ── 내 장소 모달 ──
+function openModal(){renderPlacesModal();document.getElementById('modalOverlay').classList.add('show');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('show');}
+function handleOverlayClick(e){if(e.target===document.getElementById('modalOverlay'))closeModal();}
 
 function renderPlacesModal() {
   const places=loadPlaces();
@@ -632,7 +764,7 @@ function renderPlacesModal() {
     </div>
     <div id="place-list-view">
       ${places.length===0
-        ?`<div class="place-empty"><div class="place-empty-icon">📌</div>자주 가는 장소를 저장해두면<br>⭐ 버튼으로 바로 선택할 수 있어요</div>`
+        ?`<div class="place-empty"><div class="place-empty-icon">📌</div>자주 가는 장소를 저장해두면<br>⭐ 버튼으로 바로 선택할 수 있어요<br><small style="color:var(--muted)">목적지 입력 후 📌 버튼으로 바로 저장 가능</small></div>`
         :`<div class="place-list">${places.map((p,i)=>`
             <div class="place-item" id="place-item-${i}">
               <div class="place-icon">${p.icon}</div>
@@ -665,11 +797,11 @@ function switchPlaceTab(tab) {
   document.getElementById('place-add-view').style.display=tab==='add'?'':'none';
   if(tab==='add'){addPlaceCoords=null;setupAddPlaceAC();}
 }
-function selectIcon(ic) { selectedIcon=ic; document.querySelectorAll('.icon-opt').forEach(el=>el.classList.toggle('on',el.textContent===ic)); }
+function selectIcon(ic){selectedIcon=ic;document.querySelectorAll('.icon-opt').forEach(el=>el.classList.toggle('on',el.textContent===ic));}
 function setupAddPlaceAC() {
-  const input=document.getElementById('addPlaceAddr'), acEl=document.getElementById('ac-add-place');
+  const input=document.getElementById('addPlaceAddr'),acEl=document.getElementById('ac-add-place');
   if(!input) return;
-  input.addEventListener('input', ()=>{
+  input.addEventListener('input',()=>{
     const val=input.value.trim(); if(val.length<2){acEl.style.display='none';return;}
     clearTimeout(addPlaceAcTimer);
     addPlaceAcTimer=setTimeout(()=>{
@@ -690,23 +822,23 @@ function setupAddPlaceAC() {
   input.addEventListener('blur',()=>setTimeout(()=>acEl.style.display='none',200));
 }
 function saveNewPlace() {
-  const name=document.getElementById('addPlaceName').value.trim(), addr=document.getElementById('addPlaceAddr').value.trim();
+  const name=document.getElementById('addPlaceName').value.trim(),addr=document.getElementById('addPlaceAddr').value.trim();
   if(!name){alert('장소 이름을 입력해주세요');return;} if(!addr){alert('주소를 입력해주세요');return;}
   const places=loadPlaces();
   places.push({icon:selectedIcon,name,addr,lat:addPlaceCoords?addPlaceCoords.lat:null,lng:addPlaceCoords?addPlaceCoords.lng:null});
   savePlaces(places); if(addPlaceCoords) coords[name]=addPlaceCoords;
   showStatus(`✅ "${name}" 저장 완료!`); setTimeout(hideStatus,2000); renderPlacesModal();
 }
-function deletePlace(e,idx) {
+function deletePlace(e,idx){
   e.stopPropagation();
   const places=loadPlaces(); if(!confirm(`"${places[idx].name}"을 삭제할까요?`)) return;
   places.splice(idx,1); savePlaces(places); renderPlacesModal();
 }
-function openEditPlace(e,idx) {
+function openEditPlace(e,idx){
   e.stopPropagation();
   const existing=document.getElementById('edit-form-'+idx); if(existing){existing.remove();return;}
   document.querySelectorAll('.edit-place-form').forEach(f=>f.remove());
-  const places=loadPlaces(), p=places[idx]; editingIcon=p.icon;
+  const places=loadPlaces(),p=places[idx]; editingIcon=p.icon;
   const form=document.createElement('div'); form.className='edit-place-form'; form.id='edit-form-'+idx;
   form.innerHTML=`
     <div class="icon-picker" id="edit-icon-picker-${idx}">
@@ -720,21 +852,22 @@ function openEditPlace(e,idx) {
     </div>`;
   document.getElementById('place-item-'+idx).insertAdjacentElement('afterend',form);
 }
-function selectEditIcon(ic,idx) { editingIcon=ic; document.querySelectorAll(`#edit-icon-picker-${idx} .icon-opt`).forEach(el=>el.classList.toggle('on',el.textContent===ic)); }
-function closeEditPlace(idx) { const f=document.getElementById('edit-form-'+idx); if(f) f.remove(); }
-function saveEditPlace(idx) {
-  const name=document.getElementById('edit-name-'+idx).value.trim(), addr=document.getElementById('edit-addr-'+idx).value.trim();
+function selectEditIcon(ic,idx){editingIcon=ic;document.querySelectorAll(`#edit-icon-picker-${idx} .icon-opt`).forEach(el=>el.classList.toggle('on',el.textContent===ic));}
+function closeEditPlace(idx){const f=document.getElementById('edit-form-'+idx);if(f)f.remove();}
+function saveEditPlace(idx){
+  const name=document.getElementById('edit-name-'+idx).value.trim(),addr=document.getElementById('edit-addr-'+idx).value.trim();
   if(!name){alert('장소 이름을 입력해주세요');return;} if(!addr){alert('주소를 입력해주세요');return;}
   const places=loadPlaces(); places[idx]={...places[idx],icon:editingIcon,name,addr}; savePlaces(places);
   if(places[idx].lat&&places[idx].lng) coords[name]={lat:places[idx].lat,lng:places[idx].lng};
   showStatus(`✅ "${name}" 수정 완료!`); setTimeout(hideStatus,2000); renderPlacesModal();
 }
 
-function setupBackGuard() {
+// ── 기타 ──
+function setupBackGuard(){
   history.pushState(null,'',location.href);
-  window.addEventListener('popstate',()=>{ const s=document.getElementById('sheet'); if(s.classList.contains('open')){closeSheet();history.pushState(null,'',location.href);} });
+  window.addEventListener('popstate',()=>{const s=document.getElementById('sheet');if(s.classList.contains('open')){closeSheet();history.pushState(null,'',location.href);}});
 }
-window.addEventListener('orientationchange',()=>{ setTimeout(()=>{ if(kakaoMap) kakaoMap.relayout(); },300); });
+window.addEventListener('orientationchange',()=>setTimeout(()=>{if(kakaoMap)kakaoMap.relayout();},300));
 window.onload=initApp;
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
