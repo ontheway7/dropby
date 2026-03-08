@@ -7,6 +7,8 @@
   v2.1 - 2026.03.08  찾기 버튼 하단 고정 / 가짜 데이터 제거 (평점·리뷰·영업시간)
                      필터 섹션 제거 / 내비 버튼 개선 (카카오내비 없을 시 안내)
                      네이버 플레이스 버튼 추가 / 전화번호 실제 표시
+  v2.2 - 2026.03.08  슬라이더 중언부언 텍스트 제거 → 찾기 버튼 노출
+                     Pull-to-Refresh 복원 (overflow:hidden 제거)
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -38,7 +40,7 @@
   --danger: #f87171;
 }
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-html,body { height:100%; background:var(--bg); color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:14px; overflow:hidden; }
+html,body { height:100%; background:var(--bg); color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:14px; }
 
 /* v2.1: app을 flex column으로, 찾기 버튼 고정을 위해 구조 변경 */
 .app { display:flex; flex-direction:column; height:100vh; max-width:480px; margin:0 auto; position:relative; }
@@ -513,12 +515,8 @@ input[type=range]::-webkit-slider-thumb {
 
       <!-- 우회 시간 -->
       <div class="section" style="padding-bottom:4px;">
-        <div class="section-label">🔀 최대 우회 시간</div>
-        <div class="slider-row">
-          <div class="slider-label">
-            <span>경로에서 벗어나는 시간</span>
-            <strong id="detourVal">10분</strong>
-          </div>
+        <div class="section-label">🔀 최대 우회 시간 &nbsp;<strong id="detourVal" style="color:var(--accent);font-family:'Black Han Sans',sans-serif;">10분</strong></div>
+        <div class="slider-row" style="padding:2px 0 8px;">
           <input type="range" id="detourSlider" min="5" max="60" step="5" value="10"
             oninput="updateDetour(this.value)">
         </div>
