@@ -14,6 +14,7 @@
   v2.4 - 2026.03.08  PWA 배너 → 중앙 모달 팝업 / 카드 터치 → 네이버 플레이스
                      네이버 버튼 → 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
   v2.5 - 2026.03.08  카카오맵 연결 개선 - GPS 현위치 출발지 포함, 대중교통 길찾기 모드로 바로 진입
+  v2.6 - 2026.03.08  동적 manifest 제거 → manifest.json 파일 연결 / 카테고리 강제 선택 제거
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -30,44 +31,7 @@
 <title>가는 길에 · DropBy</title>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
-<script>
-// PWA manifest + 아이콘 인라인 생성
-(function(){
-  const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-    <rect width="512" height="512" rx="112" fill="#0a0f0d"/>
-    <circle cx="256" cy="195" r="80" fill="none" stroke="#4ade80" stroke-width="30"/>
-    <circle cx="256" cy="195" r="30" fill="#4ade80"/>
-    <path d="M256 270 C230 310 200 340 210 390 Q256 430 302 390 C312 340 282 310 256 270Z" fill="#4ade80"/>
-    <path d="M100 390 Q170 345 256 338 Q342 345 412 390" fill="none" stroke="#4ade80" stroke-width="12" stroke-dasharray="20 12" stroke-linecap="round" opacity="0.45"/>
-    <circle cx="100" cy="390" r="18" fill="#fb923c"/>
-    <circle cx="412" cy="390" r="18" fill="#4ade80"/>
-  </svg>`;
-  const svgBlob = new Blob([svgIcon], {type:"image/svg+xml"});
-  const svgUrl = URL.createObjectURL(svgBlob);
-  const manifest = {
-    name: "가는 길에",
-    short_name: "가는길에",
-    description: "경로 위 장소 자동 탐색",
-    start_url: "./",
-    display: "standalone",
-    background_color: "#0a0f0d",
-    theme_color: "#0a0f0d",
-    orientation: "portrait",
-    icons: [
-      { src: svgUrl, sizes: "192x192", type: "image/svg+xml" },
-      { src: svgUrl, sizes: "512x512", type: "image/svg+xml" }
-    ]
-  };
-  const mBlob = new Blob([JSON.stringify(manifest)], {type:"application/json"});
-  const mUrl = URL.createObjectURL(mBlob);
-  const mLink = document.createElement("link");
-  mLink.rel = "manifest"; mLink.href = mUrl;
-  document.head.appendChild(mLink);
-  const iLink = document.createElement("link");
-  iLink.rel = "apple-touch-icon"; iLink.href = svgUrl;
-  document.head.appendChild(iLink);
-})();
-</script>
+<link rel="manifest" href="manifest.json">
 <style>
 :root {
   --bg: #0a0f0d;
@@ -897,7 +861,6 @@ function saveToMyPlace(p) {
 // ─────────────────────────────────────────
 function toggleCat(el) {
   el.classList.toggle('on');
-  if (!document.querySelectorAll('.cat-chip.on').length) el.classList.add('on');
 }
 
 function getActiveCats() {
@@ -1019,7 +982,6 @@ async function doSearch() {
   if (!startName) { alert('출발지를 입력해주세요'); return; }
   if (!endName) { alert('목적지를 입력해주세요'); return; }
   const cats = getActiveCats();
-  if (!cats.length) { alert('카테고리를 하나 이상 선택해주세요'); return; }
   const maxDetour = parseInt(document.getElementById('detourSlider').value);
 
   document.getElementById('btnSearch').disabled = true;
