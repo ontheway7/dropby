@@ -11,6 +11,8 @@
                      Pull-to-Refresh 복원 (overflow:hidden 제거)
   v2.3 - 2026.03.08  내 장소 편집 기능 추가 (루트마스터 방식)
                      PWA 설치 지원 (Base64 인라인 아이콘 + manifest + 설치 안내)
+  v2.4 - 2026.03.08  PWA 배너 → 중앙 모달 팝업 / 카드 터치 → 네이버 플레이스
+                     네이버 버튼 → 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -369,8 +371,8 @@ input[type=range]::-webkit-slider-thumb {
 }
 .btn-navi { background:#3A1D94; border:none; color:#fff; font-weight:500; }
 .btn-navi:hover { background:#4c28c4; }
-.btn-naver { background:var(--surface); border:1px solid var(--border); color:var(--muted); font-weight:500; }
-.btn-naver:hover { border-color:#03C75A; color:#03C75A; }
+.btn-kakaomap { background:var(--surface); border:1px solid var(--border); color:var(--muted); font-weight:500; }
+.btn-kakaomap:hover { border-color:#FFCD00; color:#FFCD00; }
 
 .empty-result {
   text-align:center; padding:40px 20px; color:var(--muted); font-size:0.82rem; line-height:2;
@@ -492,21 +494,27 @@ input[type=range]::-webkit-slider-thumb {
   border-radius:8px; color:var(--muted); font-family:'Noto Sans KR',sans-serif; font-size:0.82rem; cursor:pointer;
 }
 
-/* v2.3: PWA 설치 배너 */
-.pwa-banner {
-  position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto;
-  background:var(--card); border-top:1px solid var(--accent);
-  padding:12px 16px; z-index:300; display:none;
-  animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
+/* v2.4: PWA 설치 모달 */
+.pwa-modal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.75);
+  z-index:400; display:none; align-items:center; justify-content:center;
+  padding:24px;
 }
-.pwa-banner.show { display:flex; align-items:center; gap:10px; }
-.pwa-banner-icon { font-size:1.8rem; flex-shrink:0; }
-.pwa-banner-text { flex:1; }
-.pwa-banner-title { font-size:0.85rem; font-weight:700; color:var(--text); }
-.pwa-banner-desc { font-size:0.72rem; color:var(--muted); margin-top:2px; }
-.pwa-banner-btns { display:flex; gap:6px; flex-shrink:0; }
-.btn-pwa-install { padding:7px 12px; background:var(--accent); border:none; border-radius:8px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif; font-size:0.78rem; cursor:pointer; }
-.btn-pwa-dismiss { padding:7px 10px; background:none; border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:0.78rem; cursor:pointer; }
+.pwa-modal-overlay.show { display:flex; }
+.pwa-modal {
+  background:var(--card); border:1px solid var(--accent);
+  border-radius:20px; padding:28px 24px; width:100%; max-width:320px;
+  text-align:center; animation:fadeUp 0.25s ease both;
+}
+.pwa-modal-icon { font-size:3rem; margin-bottom:10px; }
+.pwa-modal-title { font-family:'Black Han Sans',sans-serif; font-size:1.2rem; color:var(--accent); letter-spacing:1px; margin-bottom:20px; }
+.btn-pwa-install {
+  width:100%; padding:14px; background:var(--accent); border:none;
+  border-radius:12px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif;
+  font-size:0.92rem; letter-spacing:1px; cursor:pointer; transition:all 0.2s;
+}
+.btn-pwa-install:hover { background:#6ee79d; }
+.btn-pwa-install:active { transform:scale(0.98); }
 </style>
 </head>
 <body>
@@ -628,16 +636,12 @@ input[type=range]::-webkit-slider-thumb {
 
 </div>
 
-<!-- v2.3: PWA 설치 배너 -->
-<div class="pwa-banner" id="pwaBanner">
-  <div class="pwa-banner-icon">🗺️</div>
-  <div class="pwa-banner-text">
-    <div class="pwa-banner-title">홈화면에 추가하기</div>
-    <div class="pwa-banner-desc">주소창 없이 앱처럼 사용할 수 있어요</div>
-  </div>
-  <div class="pwa-banner-btns">
-    <button class="btn-pwa-install" id="btnPwaInstall">설치</button>
-    <button class="btn-pwa-dismiss" onclick="dismissPwaBanner()">나중에</button>
+<!-- v2.4: PWA 설치 모달 -->
+<div class="pwa-modal-overlay" id="pwaBanner" onclick="handlePwaOverlayClick(event)">
+  <div class="pwa-modal">
+    <div class="pwa-modal-icon">🗺️</div>
+    <div class="pwa-modal-title">가는 길에</div>
+    <button class="btn-pwa-install" id="btnPwaInstall">설치 (주소창 없이 전체화면)</button>
   </div>
 </div>
 
@@ -1097,6 +1101,7 @@ function showResults(places) {
     const card = document.createElement('div');
     card.className = 'result-card';
     card.style.animationDelay = (i * 0.05) + 's';
+    card.style.cursor = 'pointer';
     card.innerHTML = `
       <div class="rc-top">
         <div class="rc-icon">${p.icon}</div>
@@ -1111,9 +1116,10 @@ function showResults(places) {
       <div class="rc-addr">📌 ${p.addr}</div>
       ${p.phone ? `<div class="rc-phone">📞 ${p.phone}</div>` : ''}
       <div class="rc-actions">
-        <button class="btn-rc btn-navi" onclick="naviToPlace(${i})">🧭 여기 들르기 (내비 연결)</button>
-        <button class="btn-rc btn-naver" onclick="openNaver(${i})">🟢 네이버 플레이스</button>
+        <button class="btn-rc btn-navi" onclick="event.stopPropagation();naviToPlace(${i})">🧭 여기 들르기 (내비 연결)</button>
+        <button class="btn-rc btn-kakaomap" onclick="event.stopPropagation();openKakaoMap(${i})">🗺️ 카카오맵 연결</button>
       </div>`;
+    card.addEventListener('click', e => { if (!e.target.closest('.rc-actions')) openNaver(i); });
     list.appendChild(card);
   });
 
@@ -1144,12 +1150,23 @@ function naviToPlace(idx) {
 }
 
 // ─────────────────────────────────────────
-// v2.1: 네이버 플레이스 연결
+// v2.1: 네이버 플레이스 연결 (카드 본문 터치)
 // ─────────────────────────────────────────
 function openNaver(idx) {
   const place = searchResult.places[idx];
   if (!place) return;
   const url = `https://map.naver.com/v5/search/${encodeURIComponent(place.name)}`;
+  window.open(url, '_blank');
+}
+
+// ─────────────────────────────────────────
+// v2.4: 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
+// ─────────────────────────────────────────
+function openKakaoMap(idx) {
+  const place = searchResult.places[idx];
+  if (!place) return;
+  // 대중교통 모드(walk=0, transit=1, car=2) - transit
+  const url = `https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`;
   window.open(url, '_blank');
 }
 
@@ -1384,6 +1401,10 @@ function dismissPwaBanner() {
   localStorage.setItem('pwa_dismissed', '1');
 }
 
+function handlePwaOverlayClick(e) {
+  if (e.target === document.getElementById('pwaBanner')) dismissPwaBanner();
+}
+
 // iOS 안내
 window.addEventListener('load', () => {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -1391,10 +1412,9 @@ window.addEventListener('load', () => {
   const dismissed = localStorage.getItem('pwa_dismissed');
   if (isIos && !isStandalone && !dismissed) {
     setTimeout(() => {
-      const banner = document.getElementById('pwaBanner');
-      banner.querySelector('.pwa-banner-desc').textContent = '공유 버튼 → 홈 화면에 추가를 눌러주세요';
-      banner.querySelector('#btnPwaInstall').style.display = 'none';
-      banner.classList.add('show');
+      const modal = document.getElementById('pwaBanner');
+      modal.querySelector('.btn-pwa-install').textContent = '공유 → 홈 화면에 추가';
+      modal.classList.add('show');
     }, 2000);
   }
 });
