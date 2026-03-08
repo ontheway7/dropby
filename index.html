@@ -15,6 +15,7 @@
                      네이버 버튼 → 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
   v2.5 - 2026.03.08  카카오맵 연결 개선 - GPS 현위치 출발지 포함, 대중교통 길찾기 모드로 바로 진입
   v2.6 - 2026.03.08  동적 manifest 제거 → manifest.json 파일 연결 / 카테고리 강제 선택 제거
+  v3.0 - 2026.03.08  직선 경로 → 카카오모빌리티 실제 도로 경로 기반으로 전면 개편
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -901,15 +902,55 @@ function getCoords(name) {
 }
 
 // ─────────────────────────────────────────
-// 경로 보간 / 거리
+// v3.0: 카카오모빌리티 실제 도로 경로 취득
 // ─────────────────────────────────────────
-function interpolateRoute(startC, endC, steps = 4) {
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    pts.push({ lat: startC.lat + (endC.lat - startC.lat) * t, lng: startC.lng + (endC.lng - startC.lng) * t });
+const KAKAO_REST_KEY = '4d1307b368487f762cb7e2681ede2435';
+
+async function getRoadRoute(startC, endC) {
+  const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`;
+  const res = await fetch(url, {
+    headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` }
+  });
+  if (!res.ok) throw new Error('경로 API 오류: ' + res.status);
+  const data = await res.json();
+  if (!data.routes || !data.routes[0] || data.routes[0].result_code !== 0) {
+    throw new Error('경로를 찾을 수 없습니다');
   }
+  const route = data.routes[0];
+  // 전체 경로 좌표 배열 추출
+  const coords = [];
+  for (const section of route.sections) {
+    for (const road of section.roads) {
+      const verts = road.vertexes;
+      for (let i = 0; i < verts.length; i += 2) {
+        coords.push({ lng: verts[i], lat: verts[i+1] });
+      }
+    }
+  }
+  // 총 소요 시간(초) 및 거리(m)
+  const totalSec = route.summary.duration;
+  const totalDist = route.summary.distance;
+  return { coords, totalSec, totalDist };
+}
+
+// 경로 좌표 배열을 일정 간격으로 샘플링 (장소 검색 포인트)
+function sampleRoutePoints(coords, maxPoints = 8) {
+  if (coords.length <= maxPoints) return coords;
+  const step = Math.floor(coords.length / maxPoints);
+  const pts = [];
+  for (let i = 0; i < coords.length; i += step) pts.push(coords[i]);
+  if (pts[pts.length-1] !== coords[coords.length-1]) pts.push(coords[coords.length-1]);
   return pts;
+}
+
+// 점과 경로(선분 배열) 사이의 최소 거리(km)
+function distToRoute(point, routeCoords) {
+  let minDist = Infinity;
+  for (const c of routeCoords) {
+    const d = distKm(point, c);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
 }
 
 function distKm(a, b) {
@@ -918,23 +959,28 @@ function distKm(a, b) {
   return R * 2 * Math.asin(Math.sqrt(h));
 }
 
-function calcDetourMin(startC, endC, placeC) {
-  const direct = distKm(startC, endC);
-  const via = distKm(startC, placeC) + distKm(placeC, endC);
-  return Math.round(Math.max(0, via - direct) / 40 * 60);
+// v3.0: 실제 도로 경로 기반 우회 시간 계산 (직선 거리 기반 추정)
+function calcDetourMin(startC, endC, placeC, totalSec) {
+  const totalMin = totalSec / 60;
+  const directKm = distKm(startC, endC);
+  const viaKm = distKm(startC, placeC) + distKm(placeC, endC);
+  if (directKm === 0) return 0;
+  const ratio = (viaKm - directKm) / directKm;
+  return Math.round(Math.max(0, totalMin * ratio));
 }
 
 // ─────────────────────────────────────────
-// 장소 검색
+// v3.0: 실제 도로 경로 기반 장소 검색
 // ─────────────────────────────────────────
-async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin) {
-  const midPoints = interpolateRoute(startC, endC, 4);
-  const radius = Math.min(20000, maxDetourMin * 40 * 1000 / 60);
+async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
+  const { coords, totalSec } = routeData;
+  const samplePoints = sampleRoutePoints(coords, 8);
+  const radius = Math.min(20000, maxDetourMin * 800);
   const seen = new Set();
   const results = [];
 
   for (const cat of cats) {
-    for (const point of midPoints) {
+    for (const point of samplePoints) {
       await new Promise(resolve => {
         ps.categorySearch(cat.cat, (data, status) => {
           if (status === kakao.maps.services.Status.OK) {
@@ -942,7 +988,10 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin) {
               if (seen.has(p.id)) return;
               seen.add(p.id);
               const placeC = { lat: parseFloat(p.y), lng: parseFloat(p.x) };
-              const detourMin = calcDetourMin(startC, endC, placeC);
+              // 경로와의 거리 체크 (경로에서 너무 먼 곳 제외)
+              const distFromRoute = distToRoute(placeC, coords);
+              if (distFromRoute > radius / 1000) return;
+              const detourMin = calcDetourMin(startC, endC, placeC, totalSec);
               if (detourMin <= maxDetourMin) {
                 results.push({
                   id: p.id, name: p.place_name,
@@ -952,7 +1001,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin) {
                   url: p.place_url || '',
                   lat: placeC.lat, lng: placeC.lng,
                   detourMin,
-                  detourKm: (detourMin * 40 / 60).toFixed(1)
+                  detourKm: distFromRoute.toFixed(1)
                 });
               }
             });
@@ -994,10 +1043,12 @@ async function doSearch() {
     document.getElementById('loadingText').textContent = '목적지 검색 중...';
     const endC = await getCoords(endName);
     if (!endC) { alert(`"${endName}"을 찾을 수 없습니다`); return; }
+    document.getElementById('loadingText').textContent = '실제 도로 경로 계산 중...';
+    const routeData = await getRoadRoute(startC, endC);
     document.getElementById('loadingText').textContent = '경로 주변 장소 탐색 중...';
-    const places = await searchPlacesAlongRoute(startC, endC, cats, maxDetour);
+    const places = await searchPlacesAlongRoute(startC, endC, cats, maxDetour, routeData);
     searchResult = { startC, endC, places, startName, endName };
-    drawRoute(startC, endC, places);
+    drawRoute(startC, endC, places, routeData.coords);
     showResults(places);
   } catch(e) {
     alert('오류: ' + e.message);
@@ -1010,16 +1061,21 @@ async function doSearch() {
 // ─────────────────────────────────────────
 // 지도
 // ─────────────────────────────────────────
-function drawRoute(startC, endC, places) {
+function drawRoute(startC, endC, places, routeCoords) {
   markers.forEach(m => m.setMap(null)); markers = [];
   if (polyline) polyline.setMap(null);
 
   const sLL = new kakao.maps.LatLng(startC.lat, startC.lng);
   const eLL = new kakao.maps.LatLng(endC.lat, endC.lng);
 
+  // v3.0: 실제 도로 경로선
+  const path = routeCoords
+    ? routeCoords.map(c => new kakao.maps.LatLng(c.lat, c.lng))
+    : [sLL, eLL];
+
   polyline = new kakao.maps.Polyline({
-    map: kakaoMap, path: [sLL, eLL],
-    strokeWeight: 4, strokeColor: '#4ade80', strokeOpacity: 0.7, strokeStyle: 'dashed'
+    map: kakaoMap, path,
+    strokeWeight: 5, strokeColor: '#4ade80', strokeOpacity: 0.8, strokeStyle: 'solid'
   });
 
   const mkLabel = (ll, html) => {
