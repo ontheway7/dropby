@@ -490,7 +490,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY</span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.0</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -1055,7 +1055,7 @@ async function doSearch() {
       routeData = await getRoadRoute(startC, endC);
     } catch(routeErr) {
       console.warn('도로 경로 API 실패, 직선 폴백:', routeErr.message);
-      showToast('⚠️ 도로 경로 API 오류: ' + routeErr.message);
+      alert('도로 경로 API 오류: ' + routeErr.message);
       // 직선 폴백
       const steps = 8;
       const coords = [];
