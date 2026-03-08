@@ -1,14 +1,19 @@
 {
   "name": "가는 길에",
-  "short_name": "DropBy",
+  "short_name": "가는길에",
   "description": "가는 길에 들를 곳을 찾아드려요",
-  "start_url": "./index.html",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#0a0f0d",
-  "theme_color": "#4ade80",
-  "orientation": "portrait",
+  "theme_color": "#0a0f0d",
+  "start_url": "./index.html",
+  "scope": "./",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%230a0f0d'/%3E%3Ccircle cx='96' cy='74' r='30' fill='none' stroke='%234ade80' stroke-width='11'/%3E%3Ccircle cx='96' cy='74' r='11' fill='%234ade80'/%3E%3Cpath d='M96 102 C84 118 74 130 78 148 Q96 162 114 148 C118 130 108 118 96 102Z' fill='%234ade80'/%3E%3Cpath d='M38 148 Q67 132 96 128 Q125 132 154 148' fill='none' stroke='%234ade80' stroke-width='5' stroke-dasharray='10 6' stroke-linecap='round' opacity='0.5'/%3E%3Ccircle cx='38' cy='148' r='7' fill='%23fb923c'/%3E%3Ccircle cx='154' cy='148' r='7' fill='%234ade80'/%3E%3C%2Fsvg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }
