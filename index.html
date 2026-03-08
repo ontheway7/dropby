@@ -13,6 +13,7 @@
                      PWA 설치 지원 (Base64 인라인 아이콘 + manifest + 설치 안내)
   v2.4 - 2026.03.08  PWA 배너 → 중앙 모달 팝업 / 카드 터치 → 네이버 플레이스
                      네이버 버튼 → 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
+  v2.5 - 2026.03.08  카카오맵 연결 개선 - GPS 현위치 출발지 포함, 대중교통 길찾기 모드로 바로 진입
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -665,6 +666,8 @@ const LS_PLACES = 'dropby_places_v1';
 const ICONS = ['🏠','🌳','🍽️','☕','⛽','🏪','🏥','🏋️','📍','🎯','🏖️','🏔️','🛒','🎠','🏢','🏫','💼','📖'];
 
 let kakaoReady = false;
+let myCurrentLat = null;
+let myCurrentLng = null;
 let kakaoMap = null;
 let ps = null;
 let geocoder = null;
@@ -723,6 +726,8 @@ async function initApp() {
     if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_KEY);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
+        myCurrentLat = pos.coords.latitude;
+        myCurrentLng = pos.coords.longitude;
         kakaoMap.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
         kakaoMap.setLevel(8);
         reverseGeocode(pos.coords.latitude, pos.coords.longitude, addr => {
@@ -747,6 +752,8 @@ function useCurrentLocation() {
   btn.classList.add('spinning'); btn.disabled = true;
   navigator.geolocation.getCurrentPosition(
     pos => {
+      myCurrentLat = pos.coords.latitude;
+      myCurrentLng = pos.coords.longitude;
       btn.classList.remove('spinning'); btn.disabled = false;
       reverseGeocode(pos.coords.latitude, pos.coords.longitude, addr => {
         document.getElementById('fi-start').value = addr;
@@ -1165,9 +1172,43 @@ function openNaver(idx) {
 function openKakaoMap(idx) {
   const place = searchResult.places[idx];
   if (!place) return;
-  // 대중교통 모드(walk=0, transit=1, car=2) - transit
-  const url = `https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`;
-  window.open(url, '_blank');
+
+  // GPS 현위치가 있으면 출발지 포함 길찾기, 없으면 현위치 요청
+  const launch = (sLat, sLng) => {
+    // 카카오맵 앱 URL 스킴 (대중교통 모드)
+    const appUrl = `kakaomap://route?sp=${sLat},${sLng}&ep=${place.lat},${place.lng}&by=PUBLICTRANSIT`;
+    // 웹 폴백 URL
+    const webUrl = `https://map.kakao.com/link/from/현재위치,${sLat},${sLng}/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`;
+
+    // 앱 스킴 시도 후 폴백
+    const appLink = document.createElement('a');
+    appLink.href = appUrl;
+    appLink.click();
+    setTimeout(() => window.open(webUrl, '_blank'), 1500);
+  };
+
+  if (myCurrentLat && myCurrentLng) {
+    launch(myCurrentLat, myCurrentLng);
+  } else {
+    // GPS 없으면 새로 요청
+    if (!navigator.geolocation) {
+      // 현위치 없으면 목적지만으로 카카오맵 열기
+      window.open(`https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`, '_blank');
+      return;
+    }
+    showToast('현재 위치 확인 중...');
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        myCurrentLat = pos.coords.latitude;
+        myCurrentLng = pos.coords.longitude;
+        launch(myCurrentLat, myCurrentLng);
+      },
+      () => {
+        window.open(`https://map.kakao.com/link/to/${encodeURIComponent(place.name)},${place.lat},${place.lng}`, '_blank');
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }
 }
 
 // ─────────────────────────────────────────
