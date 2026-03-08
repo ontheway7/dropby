@@ -989,31 +989,37 @@ function calcDetourMin(startC, endC, placeC, totalSec) {
 }
 
 // ─────────────────────────────────────────
-// v3.1: 실제 도로 경로 기반 장소 검색 (거리 균등 샘플링)
+// v3.1: 실제 도로 경로 기반 장소 검색 (구간별 균등 분포)
 // ─────────────────────────────────────────
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
   const { coords, totalSec, totalDist } = routeData;
-  const samplePoints = sampleRoutePoints(coords, totalDist, 10);
-  // 검색 반경: 포인트 간 간격의 절반 (겹치게) + 최소 500m, 최대 5000m
+  // 포인트 수: 10km당 2개, 최소 6개, 최대 16개
+  const maxPoints = Math.min(16, Math.max(6, Math.round(totalDist / 1000 / 10 * 2)));
+  const samplePoints = sampleRoutePoints(coords, totalDist, maxPoints);
   const intervalM = totalDist / samplePoints.length;
   const radius = Math.min(5000, Math.max(500, intervalM * 0.8));
+  // 구간별 최대 장소 수 (출발지 독식 방지)
+  const maxPerPoint = Math.ceil(30 / samplePoints.length);
   const seen = new Set();
   const results = [];
 
-  for (const cat of cats) {
-    for (const point of samplePoints) {
+  // 포인트 순서로 먼저 순회 (구간별 균등 커버)
+  for (const point of samplePoints) {
+    for (const cat of cats) {
+      let pointCount = 0;
       await new Promise(resolve => {
         ps.categorySearch(cat.cat, (data, status) => {
           if (status === kakao.maps.services.Status.OK) {
             data.forEach(p => {
+              if (pointCount >= maxPerPoint) return;
               if (seen.has(p.id)) return;
               seen.add(p.id);
               const placeC = { lat: parseFloat(p.y), lng: parseFloat(p.x) };
-              // 경로와의 거리 체크 (경로에서 너무 먼 곳 제외)
               const distFromRoute = distToRoute(placeC, coords);
               if (distFromRoute > radius / 1000) return;
               const detourMin = calcDetourMin(startC, endC, placeC, totalSec);
               if (detourMin <= maxDetourMin) {
+                pointCount++;
                 results.push({
                   id: p.id, name: p.place_name,
                   cat: cat.label, icon: cat.icon,
