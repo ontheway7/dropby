@@ -1055,7 +1055,7 @@ async function doSearch() {
       routeData = await getRoadRoute(startC, endC);
     } catch(routeErr) {
       console.warn('도로 경로 API 실패, 직선 폴백:', routeErr.message);
-      alert('도로 경로 API 오류: ' + routeErr.message);
+      showToast('⚠️ 도로 경로 오류, 직선 경로로 대체합니다');
       // 직선 폴백
       const steps = 8;
       const coords = [];
