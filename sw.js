@@ -1,4 +1,4 @@
-const CACHE = 'dropby-v3.1';
+const CACHE = 'dropby-v3.2';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -11,6 +11,7 @@ self.addEventListener('fetch', e => {
   );
 
 });
+
 
 
 
