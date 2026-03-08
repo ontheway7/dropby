@@ -1396,6 +1396,7 @@ window.addEventListener('beforeinstallprompt', e => {
 
 window.addEventListener('appinstalled', () => {
   document.getElementById('pwaBanner').classList.remove('show');
+  localStorage.setItem('pwa_dismissed', '1');
   showToast('✅ 홈화면에 추가되었습니다!');
 });
 
