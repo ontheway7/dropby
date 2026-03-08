@@ -16,6 +16,7 @@
   v2.5 - 2026.03.08  카카오맵 연결 개선 - GPS 현위치 출발지 포함, 대중교통 길찾기 모드로 바로 진입
   v2.6 - 2026.03.08  동적 manifest 제거 → manifest.json 파일 연결 / 카테고리 강제 선택 제거
   v3.0 - 2026.03.08  직선 경로 → 카카오모빌리티 실제 도로 경로 기반으로 전면 개편
+  v3.1 - 2026.03.08  경로 샘플링 거리 기준 균등 분포 / 검색 반경 경로 길이 기반 자동 조정
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -490,7 +491,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.0</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.1</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -939,13 +940,25 @@ async function getRoadRoute(startC, endC) {
   return { coords, totalSec, totalDist };
 }
 
-// 경로 좌표 배열을 일정 간격으로 샘플링 (장소 검색 포인트)
-function sampleRoutePoints(coords, maxPoints = 8) {
+// v3.1: 경로 좌표를 실제 거리 기준으로 균등하게 샘플링
+function sampleRoutePoints(coords, totalDist, maxPoints = 10) {
   if (coords.length <= maxPoints) return coords;
-  const step = Math.floor(coords.length / maxPoints);
-  const pts = [];
-  for (let i = 0; i < coords.length; i += step) pts.push(coords[i]);
-  if (pts[pts.length-1] !== coords[coords.length-1]) pts.push(coords[coords.length-1]);
+  // 총 거리를 maxPoints 구간으로 나눠서 균등 간격 포인트 추출
+  const interval = totalDist / maxPoints; // 미터 단위
+  const pts = [coords[0]];
+  let accumulated = 0;
+  let nextTarget = interval;
+  for (let i = 1; i < coords.length; i++) {
+    const d = distKm(coords[i-1], coords[i]) * 1000;
+    accumulated += d;
+    if (accumulated >= nextTarget) {
+      pts.push(coords[i]);
+      nextTarget += interval;
+    }
+  }
+  // 마지막 포인트 항상 포함
+  const last = coords[coords.length-1];
+  if (pts[pts.length-1] !== last) pts.push(last);
   return pts;
 }
 
@@ -976,12 +989,14 @@ function calcDetourMin(startC, endC, placeC, totalSec) {
 }
 
 // ─────────────────────────────────────────
-// v3.0: 실제 도로 경로 기반 장소 검색
+// v3.1: 실제 도로 경로 기반 장소 검색 (거리 균등 샘플링)
 // ─────────────────────────────────────────
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
-  const { coords, totalSec } = routeData;
-  const samplePoints = sampleRoutePoints(coords, 8);
-  const radius = Math.min(20000, maxDetourMin * 800);
+  const { coords, totalSec, totalDist } = routeData;
+  const samplePoints = sampleRoutePoints(coords, totalDist, 10);
+  // 검색 반경: 포인트 간 간격의 절반 (겹치게) + 최소 500m, 최대 5000m
+  const intervalM = totalDist / samplePoints.length;
+  const radius = Math.min(5000, Math.max(500, intervalM * 0.8));
   const seen = new Set();
   const results = [];
 
