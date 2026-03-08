@@ -886,18 +886,25 @@ function updateDetour(val) {
 function getCoords(name) {
   if (coords[name]) return Promise.resolve(coords[name]);
   return new Promise(resolve => {
-    ps.keywordSearch(name, (data, status) => {
-      if (status === kakao.maps.services.Status.OK && data.length) {
-        const c = { lat: parseFloat(data[0].y), lng: parseFloat(data[0].x) };
-        coords[name] = c; resolve(c);
-      } else {
-        geocoder.addressSearch(name, (d, s2) => {
-          if (s2 === kakao.maps.services.Status.OK && d.length) {
-            const c = { lat: parseFloat(d[0].y), lng: parseFloat(d[0].x) };
-            coords[name] = c; resolve(c);
-          } else resolve(null);
+    Promise.all([
+      new Promise(r => {
+        geocoder.addressSearch(name, (d, s) => {
+          if (s === kakao.maps.services.Status.OK && d.length)
+            r({ lat: parseFloat(d[0].y), lng: parseFloat(d[0].x) });
+          else r(null);
         });
-      }
+      }),
+      new Promise(r => {
+        ps.keywordSearch(name, (d, s) => {
+          if (s === kakao.maps.services.Status.OK && d.length)
+            r({ lat: parseFloat(d[0].y), lng: parseFloat(d[0].x) });
+          else r(null);
+        });
+      })
+    ]).then(([addrResult, keyResult]) => {
+      const c = addrResult || keyResult;
+      if (c) { coords[name] = c; resolve(c); }
+      else resolve(null);
     });
   });
 }
