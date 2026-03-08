@@ -9,6 +9,8 @@
                      네이버 플레이스 버튼 추가 / 전화번호 실제 표시
   v2.2 - 2026.03.08  슬라이더 중언부언 텍스트 제거 → 찾기 버튼 노출
                      Pull-to-Refresh 복원 (overflow:hidden 제거)
+  v2.3 - 2026.03.08  내 장소 편집 기능 추가 (루트마스터 방식)
+                     PWA 설치 지원 (Base64 인라인 아이콘 + manifest + 설치 안내)
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -25,6 +27,44 @@
 <title>가는 길에 · DropBy</title>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+<script>
+// PWA manifest + 아이콘 인라인 생성
+(function(){
+  const svgIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="112" fill="#0a0f0d"/>
+    <circle cx="256" cy="195" r="80" fill="none" stroke="#4ade80" stroke-width="30"/>
+    <circle cx="256" cy="195" r="30" fill="#4ade80"/>
+    <path d="M256 270 C230 310 200 340 210 390 Q256 430 302 390 C312 340 282 310 256 270Z" fill="#4ade80"/>
+    <path d="M100 390 Q170 345 256 338 Q342 345 412 390" fill="none" stroke="#4ade80" stroke-width="12" stroke-dasharray="20 12" stroke-linecap="round" opacity="0.45"/>
+    <circle cx="100" cy="390" r="18" fill="#fb923c"/>
+    <circle cx="412" cy="390" r="18" fill="#4ade80"/>
+  </svg>`;
+  const svgBlob = new Blob([svgIcon], {type:"image/svg+xml"});
+  const svgUrl = URL.createObjectURL(svgBlob);
+  const manifest = {
+    name: "가는 길에",
+    short_name: "가는길에",
+    description: "경로 위 장소 자동 탐색",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#0a0f0d",
+    theme_color: "#0a0f0d",
+    orientation: "portrait",
+    icons: [
+      { src: svgUrl, sizes: "192x192", type: "image/svg+xml" },
+      { src: svgUrl, sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const mBlob = new Blob([JSON.stringify(manifest)], {type:"application/json"});
+  const mUrl = URL.createObjectURL(mBlob);
+  const mLink = document.createElement("link");
+  mLink.rel = "manifest"; mLink.href = mUrl;
+  document.head.appendChild(mLink);
+  const iLink = document.createElement("link");
+  iLink.rel = "apple-touch-icon"; iLink.href = svgUrl;
+  document.head.appendChild(iLink);
+})();
+</script>
 <style>
 :root {
   --bg: #0a0f0d;
@@ -433,6 +473,40 @@ input[type=range]::-webkit-slider-thumb {
   border-radius:8px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif;
   font-size:0.9rem; letter-spacing:1px; cursor:pointer; margin-top:4px;
 }
+
+/* v2.3: 장소 편집 */
+.btn-place-edit { background:none; border:none; color:var(--muted); cursor:pointer; font-size:0.9rem; padding:4px; transition:color 0.15s; flex-shrink:0; }
+.btn-place-edit:hover { color:var(--accent3); }
+.edit-place-form {
+  background:var(--surface); border:1px solid var(--accent3);
+  border-radius:12px; padding:14px; margin-top:6px;
+  animation:fadeUp 0.2s ease both;
+}
+.edit-btns { display:flex; gap:8px; margin-top:8px; }
+.btn-edit-save {
+  flex:1; padding:9px; background:var(--accent3); border:none;
+  border-radius:8px; color:#000; font-family:'Black Han Sans',sans-serif; font-size:0.82rem; cursor:pointer;
+}
+.btn-edit-cancel {
+  padding:9px 14px; background:var(--card); border:1px solid var(--border);
+  border-radius:8px; color:var(--muted); font-family:'Noto Sans KR',sans-serif; font-size:0.82rem; cursor:pointer;
+}
+
+/* v2.3: PWA 설치 배너 */
+.pwa-banner {
+  position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto;
+  background:var(--card); border-top:1px solid var(--accent);
+  padding:12px 16px; z-index:300; display:none;
+  animation:slideUp 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.pwa-banner.show { display:flex; align-items:center; gap:10px; }
+.pwa-banner-icon { font-size:1.8rem; flex-shrink:0; }
+.pwa-banner-text { flex:1; }
+.pwa-banner-title { font-size:0.85rem; font-weight:700; color:var(--text); }
+.pwa-banner-desc { font-size:0.72rem; color:var(--muted); margin-top:2px; }
+.pwa-banner-btns { display:flex; gap:6px; flex-shrink:0; }
+.btn-pwa-install { padding:7px 12px; background:var(--accent); border:none; border-radius:8px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif; font-size:0.78rem; cursor:pointer; }
+.btn-pwa-dismiss { padding:7px 10px; background:none; border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:0.78rem; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -552,6 +626,19 @@ input[type=range]::-webkit-slider-thumb {
     <div class="loading-text" id="loadingText">경로 계산 중...</div>
   </div>
 
+</div>
+
+<!-- v2.3: PWA 설치 배너 -->
+<div class="pwa-banner" id="pwaBanner">
+  <div class="pwa-banner-icon">🗺️</div>
+  <div class="pwa-banner-text">
+    <div class="pwa-banner-title">홈화면에 추가하기</div>
+    <div class="pwa-banner-desc">주소창 없이 앱처럼 사용할 수 있어요</div>
+  </div>
+  <div class="pwa-banner-btns">
+    <button class="btn-pwa-install" id="btnPwaInstall">설치</button>
+    <button class="btn-pwa-dismiss" onclick="dismissPwaBanner()">나중에</button>
+  </div>
 </div>
 
 <!-- 내 장소 모달 -->
@@ -1115,9 +1202,10 @@ function renderPlacesModal() {
       ${places.length === 0
         ? `<div class="place-empty"><div class="place-empty-icon">📌</div>자주 가는 장소를 저장해두면<br>⭐ 버튼으로 바로 선택할 수 있어요<br><br><small>자동완성 결과에서 📌 버튼을 눌러도 저장돼요</small></div>`
         : `<div class="place-list">${places.map((p, i) => `
-            <div class="place-item">
+            <div class="place-item" id="place-item-${i}">
               <div class="place-icon">${p.icon}</div>
               <div class="place-info"><div class="place-name">${p.name}</div><div class="place-addr">${p.addr}</div></div>
+              <button class="btn-place-edit" onclick="openEditPlace(event,${i})">✏️</button>
               <button class="btn-place-del" onclick="deletePlace(event,${i})">🗑️</button>
             </div>`).join('')}</div>`}
     </div>
@@ -1203,6 +1291,113 @@ function deletePlace(e, idx) {
   if (!confirm(`"${places[idx].name}"을 삭제할까요?`)) return;
   places.splice(idx, 1); savePlaces(places); renderPlacesModal();
 }
+
+// ─────────────────────────────────────────
+// v2.3: 내 장소 편집 (루트마스터 방식)
+// ─────────────────────────────────────────
+let editingIcon = '📍';
+
+function openEditPlace(e, idx) {
+  e.stopPropagation();
+  const existing = document.getElementById('edit-form-' + idx);
+  if (existing) { existing.remove(); return; }
+  document.querySelectorAll('.edit-place-form').forEach(f => f.remove());
+
+  const places = loadPlaces();
+  const p = places[idx];
+  editingIcon = p.icon;
+
+  const iconsHtml = ICONS.map(ic =>
+    `<div class="icon-opt${ic === editingIcon ? ' on' : ''}" onclick="selectEditIcon('${ic}',${idx})">${ic}</div>`
+  ).join('');
+
+  const form = document.createElement('div');
+  form.className = 'edit-place-form';
+  form.id = 'edit-form-' + idx;
+  form.innerHTML = `
+    <div class="icon-picker" id="edit-icon-picker-${idx}" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+      ${iconsHtml}
+    </div>
+    <input class="add-place-input" id="edit-name-${idx}" value="${p.name}" placeholder="장소 이름" maxlength="20">
+    <input class="add-place-input" id="edit-addr-${idx}" value="${p.addr}" placeholder="주소" style="margin-bottom:0">
+    <div class="edit-btns">
+      <button class="btn-edit-cancel" onclick="closeEditPlace(${idx})">취소</button>
+      <button class="btn-edit-save" onclick="saveEditPlace(${idx})">저장</button>
+    </div>`;
+
+  const item = document.getElementById('place-item-' + idx);
+  item.insertAdjacentElement('afterend', form);
+}
+
+function selectEditIcon(ic, idx) {
+  editingIcon = ic;
+  document.querySelectorAll('#edit-icon-picker-' + idx + ' .icon-opt').forEach(el =>
+    el.classList.toggle('on', el.textContent === ic)
+  );
+}
+
+function closeEditPlace(idx) {
+  const form = document.getElementById('edit-form-' + idx);
+  if (form) form.remove();
+}
+
+function saveEditPlace(idx) {
+  const name = document.getElementById('edit-name-' + idx).value.trim();
+  const addr = document.getElementById('edit-addr-' + idx).value.trim();
+  if (!name) { alert('장소 이름을 입력해주세요'); return; }
+  if (!addr) { alert('주소를 입력해주세요'); return; }
+  const places = loadPlaces();
+  places[idx] = { ...places[idx], icon: editingIcon, name, addr };
+  savePlaces(places);
+  if (places[idx].lat && places[idx].lng) coords[name] = { lat: places[idx].lat, lng: places[idx].lng };
+  showToast('✅ "' + name + '" 수정 완료!');
+  renderPlacesModal();
+}
+
+// ─────────────────────────────────────────
+// v2.3: PWA 설치 배너
+// ─────────────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const dismissed = localStorage.getItem('pwa_dismissed');
+  if (!dismissed) {
+    setTimeout(() => document.getElementById('pwaBanner').classList.add('show'), 2000);
+  }
+  document.getElementById('btnPwaInstall').addEventListener('click', async () => {
+    document.getElementById('pwaBanner').classList.remove('show');
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+  });
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwaBanner').classList.remove('show');
+  showToast('✅ 홈화면에 추가되었습니다!');
+});
+
+function dismissPwaBanner() {
+  document.getElementById('pwaBanner').classList.remove('show');
+  localStorage.setItem('pwa_dismissed', '1');
+}
+
+// iOS 안내
+window.addEventListener('load', () => {
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  const dismissed = localStorage.getItem('pwa_dismissed');
+  if (isIos && !isStandalone && !dismissed) {
+    setTimeout(() => {
+      const banner = document.getElementById('pwaBanner');
+      banner.querySelector('.pwa-banner-desc').textContent = '공유 버튼 → 홈 화면에 추가를 눌러주세요';
+      banner.querySelector('#btnPwaInstall').style.display = 'none';
+      banner.classList.add('show');
+    }, 2000);
+  }
+});
 
 window.onload = initApp;
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
