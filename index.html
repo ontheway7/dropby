@@ -908,13 +908,19 @@ const KAKAO_REST_KEY = '4d1307b368487f762cb7e2681ede2435';
 
 async function getRoadRoute(startC, endC) {
   const url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`;
-  const res = await fetch(url, {
-    headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` }
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` }
+    });
+  } catch(e) {
+    throw new Error('경로 API 연결 실패 (CORS 또는 네트워크): ' + e.message);
+  }
   if (!res.ok) throw new Error('경로 API 오류: ' + res.status);
   const data = await res.json();
+  console.log('카카오모빌리티 응답:', data);
   if (!data.routes || !data.routes[0] || data.routes[0].result_code !== 0) {
-    throw new Error('경로를 찾을 수 없습니다');
+    throw new Error('경로를 찾을 수 없습니다: ' + (data.routes?.[0]?.result_msg || ''));
   }
   const route = data.routes[0];
   // 전체 경로 좌표 배열 추출
@@ -1044,7 +1050,22 @@ async function doSearch() {
     const endC = await getCoords(endName);
     if (!endC) { alert(`"${endName}"을 찾을 수 없습니다`); return; }
     document.getElementById('loadingText').textContent = '실제 도로 경로 계산 중...';
-    const routeData = await getRoadRoute(startC, endC);
+    let routeData;
+    try {
+      routeData = await getRoadRoute(startC, endC);
+    } catch(routeErr) {
+      console.warn('도로 경로 API 실패, 직선 폴백:', routeErr.message);
+      showToast('⚠️ 도로 경로 API 오류: ' + routeErr.message);
+      // 직선 폴백
+      const steps = 8;
+      const coords = [];
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        coords.push({ lat: startC.lat + (endC.lat - startC.lat) * t, lng: startC.lng + (endC.lng - startC.lng) * t });
+      }
+      const distM = distKm(startC, endC) * 1000;
+      routeData = { coords, totalSec: distM / 40 * 3.6, totalDist: distM };
+    }
     document.getElementById('loadingText').textContent = '경로 주변 장소 탐색 중...';
     const places = await searchPlacesAlongRoute(startC, endC, cats, maxDetour, routeData);
     searchResult = { startC, endC, places, startName, endName };
