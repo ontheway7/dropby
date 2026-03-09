@@ -1534,11 +1534,13 @@ function exportPlaces() {
   const blob = new Blob([JSON.stringify(places, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'dropby_places.json';
+  a.download = `dropby_places_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
+  showToast('✅ 내 장소를 Download 폴더에 저장했어요');
 }
 
 function importPlaces() {
+  showToast('📂 Download 폴더에서 파일을 선택하세요', 3000);
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.json';
   input.onchange = e => {
@@ -1554,7 +1556,9 @@ function importPlaces() {
           existing.push(p); added++;
         });
         savePlaces(existing);
-        showToast(`✅ ${added}개 추가, ${skipped}개 중복 건너뜀`);
+        if (added === 0) showToast('이미 저장된 장소예요');
+        else if (skipped === 0) showToast(`✅ ${added}개 장소를 가져왔어요`);
+        else showToast(`✅ ${added}개 추가, ${skipped}개는 이미 있어요`);
         renderPlacesModal();
       } catch { showToast('⚠️ 파일을 읽을 수 없어요'); }
     };
