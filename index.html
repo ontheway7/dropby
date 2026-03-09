@@ -1234,7 +1234,7 @@ function naviToPlace(idx) {
 function openNaver(idx) {
   const place = searchResult.places[idx];
   if (!place) return;
-  const url = `https://m.place.naver.com/search?query=${encodeURIComponent(place.name + ' ' + place.addr)}`;
+  const url = `https://m.search.naver.com/search.naver?query=${encodeURIComponent(place.name + ' ' + place.addr)}`;
   window.open(url, '_blank');
 }
 
@@ -1532,4 +1532,5 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').ca
 </script>
 </body>
 </html>
+
 
