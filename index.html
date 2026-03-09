@@ -1536,11 +1536,11 @@ function exportPlaces() {
   a.href = URL.createObjectURL(blob);
   a.download = `dropby_places_${new Date().toISOString().slice(0,16).replace('T','_').replace(':','')}.json`;
   a.click();
-  showToast('✅ 내 장소를 Download 폴더에 저장했어요');
+  showToast('✅ 내 장소를 Download 폴더에 저장했어요', 2000);
 }
 
 function importPlaces() {
-  showToast('📂 Download 폴더에서 파일을 선택하세요', 3000);
+  showToast('📂 Download 폴더에서 파일을 선택하세요', 4000);
   const input = document.createElement('input');
   input.type = 'file'; input.accept = '.json';
   input.onchange = e => {
