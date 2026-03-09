@@ -20,6 +20,8 @@
   v3.2 - 2026.03.08  직접 주소를 타이핑하여 내 장소로 저장할 때 이름을 띄어 쓰기를 하면 발생하는 오류 수정
   v3.3 - 2026.03.09  카테고리 개편: 편의점(CS2) 추가, 은행·ATM(BK9) 추가, 교통→역·터미널 이름 변경 및 순서 조정
   v3.4 - 2026.03.09  탐색 결과 검색을 네이버 지도에서 네이버 플레이스로 변경
+  v3.4.1 - 2026.03.09  내 장소 가나다, 한글 영문 순으로 소팅
+  v3.4.2 - 2026.03.09  내 장소 내보내기, 가져오기 추가
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -494,7 +496,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.4</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.4.2</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -622,7 +624,11 @@ input[type=range]::-webkit-slider-thumb {
   <div class="modal">
     <div class="modal-head">
       <div class="modal-title">📌 내 장소</div>
-      <button class="btn-close" onclick="closePlacesModal()">✕</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button class="btn-header" onclick="exportPlaces()" title="내보내기">📤</button>
+        <button class="btn-header" onclick="importPlaces()" title="가져오기">📥</button>
+        <button class="btn-close" onclick="closePlacesModal()">✕</button>
+      </div>
     </div>
     <div class="modal-body" id="modalBody"></div>
   </div>
@@ -634,7 +640,7 @@ input[type=range]::-webkit-slider-thumb {
 // ─────────────────────────────────────────
 const KAKAO_KEY = '4d1307b368487f762cb7e2681ede2435';
 const LS_PLACES = 'dropby_places_v1';
-const ICONS = ['🏠','🌳','🍽️','☕','⛽','🏪','🏥','🏋️','📍','🎯','🏖️','🏔️','🛒','🎠','🏢','🏫','💼','📖'];
+const ICONS = ['🏠','🌳','🍜','☕','⛽','🏪','🏥','🏋️','📍','🎯','🏖️','🏔️','🛒','🎠','🏢','🏫','💼','📖'];
 
 let kakaoReady = false;
 let myCurrentLat = null;
@@ -654,7 +660,16 @@ let addPlaceAcTimer = null;
 // localStorage
 // ─────────────────────────────────────────
 function loadPlaces() {
-  try { return JSON.parse(localStorage.getItem(LS_PLACES)) || []; } catch { return []; }
+  try {
+    const places = JSON.parse(localStorage.getItem(LS_PLACES)) || [];
+    return places.sort((a, b) => {
+      const aKo = /^[가-힣]/.test(a.name);
+      const bKo = /^[가-힣]/.test(b.name);
+      if (aKo && !bKo) return -1;
+      if (!aKo && bKo) return 1;
+      return a.name.localeCompare(b.name, 'ko');
+    });
+  } catch { return []; }
 }
 function savePlaces(arr) { localStorage.setItem(LS_PLACES, JSON.stringify(arr)); }
 
@@ -1513,6 +1528,41 @@ function handlePwaOverlayClick(e) {
   if (e.target === document.getElementById('pwaBanner')) dismissPwaBanner();
 }
 
+function exportPlaces() {
+  const places = loadPlaces();
+  if (!places.length) { showToast('저장된 장소가 없어요'); return; }
+  const blob = new Blob([JSON.stringify(places, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dropby_places.json';
+  a.click();
+}
+
+function importPlaces() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const imported = JSON.parse(ev.target.result);
+        const existing = loadPlaces();
+        let added = 0, skipped = 0;
+        imported.forEach(p => {
+          if (existing.some(x => x.addr === p.addr)) { skipped++; return; }
+          existing.push(p); added++;
+        });
+        savePlaces(existing);
+        showToast(`✅ ${added}개 추가, ${skipped}개 중복 건너뜀`);
+        renderPlacesModal();
+      } catch { showToast('⚠️ 파일을 읽을 수 없어요'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 // iOS 안내
 window.addEventListener('load', () => {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -1532,5 +1582,3 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').ca
 </script>
 </body>
 </html>
-
-
