@@ -19,6 +19,7 @@
   v3.1 - 2026.03.08  경로 샘플링 거리 기준 균등 분포 / 검색 반경 경로 길이 기반 자동 조정
   v3.2 - 2026.03.08  직접 주소를 타이핑하여 내 장소로 저장할 때 이름을 띄어 쓰기를 하면 발생하는 오류 수정
   v3.3 - 2026.03.09  카테고리 개편: 편의점(CS2) 추가, 은행·ATM(BK9) 추가, 교통→역·터미널 이름 변경 및 순서 조정
+  v3.4 - 2026.03.09  탐색 결과 검색을 네이버 지도에서 네이버 플레이스로 변경
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -493,7 +494,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.3</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.4</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -1233,7 +1234,7 @@ function naviToPlace(idx) {
 function openNaver(idx) {
   const place = searchResult.places[idx];
   if (!place) return;
-  const url = `https://map.naver.com/v5/search/${encodeURIComponent(place.name)}`;
+  const url = `https://place.naver.com/search?query=${encodeURIComponent(place.name + ' ' + place.addr)}`;
   window.open(url, '_blank');
 }
 
