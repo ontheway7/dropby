@@ -1117,7 +1117,7 @@ async function doSearch() {
     document.getElementById('loadingText').textContent = '경로 주변 장소 탐색 중...';
     const places = await searchPlacesAlongRoute(startC, endC, cats, maxDetour, routeData);
     searchResult = { startC, endC, places, startName, endName };
-    drawRoute(startC, endC, places, routeData.coords);
+    drawRoute(startC, endC, places, routeData);
     showResults(places);
   } catch(e) {
     alert('오류: ' + e.message);
@@ -1130,7 +1130,7 @@ async function doSearch() {
 // ─────────────────────────────────────────
 // 지도
 // ─────────────────────────────────────────
-function drawRoute(startC, endC, places, routeCoords) {
+function drawRoute(startC, endC, places, routeData) {
   markers.forEach(m => m.setMap(null)); markers = [];
   if (polyline) polyline.setMap(null);
 
@@ -1138,8 +1138,8 @@ function drawRoute(startC, endC, places, routeCoords) {
   const eLL = new kakao.maps.LatLng(endC.lat, endC.lng);
 
   // v3.0: 실제 도로 경로선
-  const path = routeCoords
-    ? routeCoords.map(c => new kakao.maps.LatLng(c.lat, c.lng))
+  const path = routeData?.coords
+    ? routeData.coords.map(c => new kakao.maps.LatLng(c.lat, c.lng))
     : [sLL, eLL];
 
   polyline = new kakao.maps.Polyline({
@@ -1167,9 +1167,9 @@ function drawRoute(startC, endC, places, routeCoords) {
   places.slice(0, 10).forEach(p => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
   kakaoMap.setBounds(bounds);
 
-  const totalKm = distKm(startC, endC) * 1.25;
-  const totalMin = Math.round(totalKm / 40 * 60);
-  document.getElementById('sDist').textContent = totalKm.toFixed(1) + 'km';
+  const totalKm = (routeData.totalDist / 1000).toFixed(1);
+  const totalMin = Math.round(routeData.totalSec / 60);
+  document.getElementById('sDist').textContent = totalKm + 'km';
   document.getElementById('sTime').textContent = Math.floor(totalMin/60) + 'h' + (totalMin%60) + 'm';
   document.getElementById('sFound').textContent = places.length + '곳';
   document.getElementById('mapStats').classList.add('show');
