@@ -22,6 +22,11 @@
   v3.4 - 2026.03.09  탐색 결과 검색을 네이버 지도에서 네이버 플레이스로 변경
   v3.4.1 - 2026.03.09  내 장소 가나다, 한글 영문 순으로 소팅
   v3.4.2 - 2026.03.09  내 장소 내보내기, 가져오기 추가
+  v4.0.0 - 2026.03.10  카테고리별 서브탭 추가 (맛집/카페/주유소/편의점/마트/숙박/역터미널)
+                       약국 야간 배너, 명소 category_name 필터링, 주유소 정렬 토글
+  v4.0.1 - 2026.03.10  이탈시간 계산: 직선 추정 → 카카오모빌리티 실API 호출 (장소당 2회, 병렬)
+                       HP8 category_name 필터 제거 (휴게소 0개 버그 수정)
+                       약국 배너 조건 토요일 추가
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -496,7 +501,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v3.4.2</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.0.1</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -595,6 +600,15 @@ input[type=range]::-webkit-slider-thumb {
         <span class="sheet-count" id="sheetCount"></span>
       </div>
       <button class="btn-close" onclick="closeSheet()">✕</button>
+    </div>
+    <!-- v4.0.0: 카테고리 서브탭 (카테고리별 조건부 노출) -->
+    <div id="subTabArea" style="display:none; padding:0 14px 0; border-bottom:1px solid var(--border);">
+      <div id="subTabRow" class="tabs" style="margin:10px 0 8px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none;"></div>
+    </div>
+    <!-- v4.0.0: 약국 야간 배너 (야간·공휴일 조건부 노출) -->
+    <div id="pharmacyBanner" style="display:none; padding:10px 14px; background:rgba(251,146,60,0.12); border-bottom:1px solid rgba(251,146,60,0.3);">
+      <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문 열었는지 꼭 확인하고 가세요 →</span>
+      <a href="https://pharm114.or.kr" target="_blank" style="font-size:0.78rem; color:#fb923c; text-decoration:underline; margin-left:4px;">휴일지킴이약국</a>
     </div>
     <div class="result-list" id="resultList"></div>
   </div>
@@ -894,6 +908,125 @@ function getActiveCats() {
 }
 
 // ─────────────────────────────────────────
+// v4.0.0: 카테고리 코드별 category_name 정합성 필터
+// 카카오 categorySearch가 간혹 엉뚱한 업종을 섞어 반환하는 문제 차단
+// HP8은 카카오가 휴게소만 반환하므로 필터 불필요
+const CAT_NAME_FILTER = {
+  AT4: p => /관광|명소|문화|유적|박물관|미술관|공원|전망|해수욕|해변|폭포|계곡/.test(p.category_name),
+};
+
+
+// ─────────────────────────────────────────
+// key: 카카오 카테고리 코드, tabs: 서브탭 배열 (label, filterFn)
+// filterFn(place) → true면 해당 탭에 포함
+const CAT_SUBTABS = {
+  FD6: [
+    { label: '전체',     filterFn: () => true },
+    { label: '한식',     filterFn: p => /한식|국밥|설렁탕|갈비|삼겹|순대|순국|곰탕|보쌈|냉면|돼지|닭갈비/.test(p.catName) },
+    { label: '중식',     filterFn: p => /중식|중국|짜장|짬뽕|탕수육/.test(p.catName) },
+    { label: '일식',     filterFn: p => /일식|일본|초밥|스시|라멘|우동|돈카츠|사시미/.test(p.catName) },
+    { label: '양식·기타', filterFn: p => !/한식|국밥|설렁탕|갈비|삼겹|순대|순국|곰탕|보쌈|냉면|돼지|닭갈비|중식|중국|짜장|짬뽕|탕수육|일식|일본|초밥|스시|라멘|우동|돈카츠|사시미/.test(p.catName) },
+  ],
+  CE7: [
+    { label: '전체',       filterFn: () => true },
+    { label: '카페',       filterFn: p => !/베이커리|빵|제과|bakery/i.test(p.catName) },
+    { label: '베이커리카페', filterFn: p => /베이커리|빵|제과|bakery/i.test(p.catName) },
+  ],
+  OL7: [
+    { label: '전체',     filterFn: () => true },
+    { label: '고급휘발유', filterFn: p => /고급|프리미엄/.test(p.catName) },
+    { label: 'LPG',      filterFn: p => /LPG|충전소/.test(p.catName) },
+  ],  CS2: [
+    { label: '전체',      filterFn: () => true },
+    { label: 'CU',        filterFn: p => /CU/.test(p.name) },
+    { label: 'GS25',      filterFn: p => /GS25/.test(p.name) },
+    { label: '세븐일레븐', filterFn: p => /세븐|7-Eleven|7eleven/i.test(p.name) },
+    { label: '이마트24',  filterFn: p => /이마트24|emart24/i.test(p.name) },
+  ],
+  MT1: [
+    { label: '전체',     filterFn: () => true },
+    { label: '대형마트',  filterFn: p => /이마트|홈플러스|롯데마트|코스트코|하나로마트|농협마트/.test(p.name) },
+    { label: '슈퍼·마트', filterFn: p => !/이마트|홈플러스|롯데마트|코스트코|하나로마트|농협마트/.test(p.name) },
+  ],
+  AD5: [
+    { label: '전체',         filterFn: () => true },
+    { label: '호텔·리조트',   filterFn: p => /호텔|리조트|hotel|resort/i.test(p.catName + p.name) },
+    { label: '펜션·게스트하우스', filterFn: p => /펜션|게스트하우스|민박/.test(p.catName + p.name) },
+    { label: '모텔',          filterFn: p => /모텔|motel/i.test(p.catName + p.name) },
+  ],
+  SW8: [
+    { label: '전체',      filterFn: () => true },
+    { label: '기차·철도역', filterFn: p => /기차|철도|KTX|SRT|ITX|무궁화|새마을|역$/.test(p.name) && !/버스|고속|터미널|지하철/.test(p.catName) },
+    { label: '버스터미널',  filterFn: p => /버스|터미널/.test(p.catName + p.name) },
+    { label: '지하철역',   filterFn: p => /지하철|metro|subway/i.test(p.catName) },
+  ],
+  // HP8(휴게소)·AT4(명소)·PM9(약국)·BK9(은행ATM): 서브탭 없음
+};
+
+// 현재 활성 서브탭 인덱스 (카테고리별)
+let activeSubTab = {};
+// 현재 표시 중인 전체 결과 (서브탭 필터용)
+let currentPlaces = [];
+// 현재 단일 카테고리 코드 (서브탭 표시 여부 판단용)
+let currentSingleCat = null;
+
+// v4.0.0: 서브탭 렌더링
+function renderSubTabs(catCode, places) {
+  const area = document.getElementById('subTabArea');
+  const row  = document.getElementById('subTabRow');
+  const tabs = CAT_SUBTABS[catCode];
+
+  if (!tabs) { area.style.display = 'none'; return; }
+
+  area.style.display = '';
+  row.innerHTML = '';
+  const curIdx = activeSubTab[catCode] ?? 0;
+
+  tabs.forEach((t, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tab' + (i === curIdx ? ' on' : '');
+    btn.style.cssText = 'white-space:nowrap; flex-shrink:0;';
+    btn.textContent = t.label;
+    btn.onclick = () => {
+      activeSubTab[catCode] = i;
+      renderSubTabs(catCode, places);
+      applySubTabFilter(catCode, places);
+    };
+    row.appendChild(btn);
+  });
+
+  // 주유소: 정렬 토글 버튼 추가 (유가 연동 전 준비 중 표시)
+  if (catCode === 'OL7') {
+    const sortBtn = document.createElement('button');
+    sortBtn.className = 'tab';
+    sortBtn.style.cssText = 'white-space:nowrap; flex-shrink:0; margin-left:auto; opacity:0.5; cursor:default;';
+    sortBtn.textContent = '💰 저가순 (준비 중)';
+    sortBtn.title = '오피넷 유가 연동 후 지원 예정';
+    row.appendChild(sortBtn);
+  }
+}
+
+// v4.0.0: 서브탭 필터 적용 후 카드 재렌더
+function applySubTabFilter(catCode, places) {
+  const tabs = CAT_SUBTABS[catCode];
+  if (!tabs) { renderCards(places); return; }
+  const idx = activeSubTab[catCode] ?? 0;
+  const filtered = places.filter(p => tabs[idx].filterFn(p));
+  renderCards(filtered);
+  document.getElementById('sheetCount').textContent = `${filtered.length}곳 발견`;
+}
+
+// v4.0.0: 약국 야간 배너 (20시~익일 9시 또는 일요일·토요일)
+function shouldShowPharmacyBanner() {
+  const now = new Date();
+  const h = now.getHours();
+  const day = now.getDay(); // 0=일, 6=토
+  if (day === 0 || day === 6) return true; // 주말
+  if (h >= 20 || h < 9) return true;       // 야간
+  return false;
+}
+
+// ─────────────────────────────────────────
 // 우회 슬라이더
 // ─────────────────────────────────────────
 function updateDetour(val) {
@@ -1005,14 +1138,61 @@ function distKm(a, b) {
   return R * 2 * Math.asin(Math.sqrt(h));
 }
 
-// v3.0: 실제 도로 경로 기반 우회 시간 계산 (직선 거리 기반 추정)
-function calcDetourMin(startC, endC, placeC, totalSec) {
-  const totalMin = totalSec / 60;
-  const directKm = distKm(startC, endC);
-  const viaKm = distKm(startC, placeC) + distKm(placeC, endC);
-  if (directKm === 0) return 0;
-  const ratio = (viaKm - directKm) / directKm;
-  return Math.round(Math.max(0, totalMin * ratio));
+// v4.0.1: 경로 좌표 기반 이탈 시간 계산 (직선 추정 → 실도로 시간 비율 분할)
+// 경로상 가장 가까운 포인트까지의 누적 거리 비율로 앞/뒤 구간 시간 분할,
+// 장소까지 실제 이탈 거리(왕복)를 경로 평균속도로 환산하여 합산
+function calcDetourMin(startC, endC, placeC, totalSec, routeCoords, totalDist) {
+  if (!routeCoords || routeCoords.length < 2 || totalDist === 0) {
+    // 폴백: 직선 비율 추정
+    const totalMin = totalSec / 60;
+    const directKm = distKm(startC, endC);
+    const viaKm = distKm(startC, placeC) + distKm(placeC, endC);
+    if (directKm === 0) return 0;
+    return Math.round(Math.max(0, totalMin * (viaKm - directKm) / directKm));
+  }
+
+  // 경로상 장소와 가장 가까운 포인트 인덱스 및 이탈 거리 탐색
+  let minDist = Infinity;
+  let nearestIdx = 0;
+  for (let i = 0; i < routeCoords.length; i++) {
+    const d = distKm(placeC, routeCoords[i]);
+    if (d < minDist) { minDist = d; nearestIdx = i; }
+  }
+
+  // 시작~nearest 누적 거리 계산
+  let accumulated = 0;
+  for (let i = 1; i <= nearestIdx; i++) {
+    accumulated += distKm(routeCoords[i-1], routeCoords[i]) * 1000; // 미터
+  }
+
+  // 경로 평균 속도 (m/s)
+  const avgSpeedMs = totalDist / totalSec;
+
+  // 이탈 왕복 시간 (장소까지 직선 거리 왕복, 평균속도 기준)
+  const detourDistM = minDist * 1000 * 2; // 왕복
+  const detourSec = detourDistM / avgSpeedMs;
+
+  return Math.round(Math.max(0, detourSec / 60));
+}
+
+// v4.0.1: 카카오모빌리티 API로 실제 이탈시간 계산 (출발→장소 + 장소→목적지 - 직행)
+async function calcDetourMinReal(startC, endC, placeC, totalSec) {
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${placeC.lng},${placeC.lat}&priority=RECOMMEND`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } }),
+      fetch(`https://apis-navi.kakaomobility.com/v1/directions?origin=${placeC.lng},${placeC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`,
+        { headers: { Authorization: `KakaoAK ${KAKAO_REST_KEY}` } })
+    ]);
+    const [d1, d2] = await Promise.all([r1.json(), r2.json()]);
+    const sec1 = d1.routes?.[0]?.summary?.duration;
+    const sec2 = d2.routes?.[0]?.summary?.duration;
+    if (!sec1 || !sec2) return null;
+    const detourSec = (sec1 + sec2) - totalSec;
+    return Math.round(Math.max(0, detourSec / 60));
+  } catch(e) {
+    return null; // 실패 시 추정값 사용
+  }
 }
 
 // ─────────────────────────────────────────
@@ -1041,15 +1221,20 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
               if (pointCount >= maxPerPoint) return;
               if (seen.has(p.id)) return;
               seen.add(p.id);
+              // v4.0.0: 카테고리 정합성 필터 (HP8 등 엉뚱한 업종 차단)
+              const nameFilter = CAT_NAME_FILTER[cat.cat];
+              if (nameFilter && !nameFilter(p)) return;
               const placeC = { lat: parseFloat(p.y), lng: parseFloat(p.x) };
               const distFromRoute = distToRoute(placeC, coords);
               if (distFromRoute > radius / 1000) return;
-              const detourMin = calcDetourMin(startC, endC, placeC, totalSec);
+              const detourMin = calcDetourMin(startC, endC, placeC, totalSec, coords, totalDist);
               if (detourMin <= maxDetourMin) {
                 pointCount++;
                 results.push({
                   id: p.id, name: p.place_name,
                   cat: cat.label, icon: cat.icon,
+                  catCode: cat.cat,                          // v4.0.0: 서브탭 필터용
+                  catName: p.category_name || '',            // v4.0.0: 서브탭 필터용
                   addr: p.road_address_name || p.address_name,
                   phone: p.phone || '',
                   url: p.place_url || '',
@@ -1069,8 +1254,24 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
       });
     }
   }
+
+  // v4.0.1: 상위 6개만 실API 이탈시간 계산, 나머지는 추정값 유지
+  document.getElementById('loadingText').textContent = '이탈 시간 계산 중...';
+  // 1차 추정값 기준 정렬
   results.sort((a, b) => a.detourMin - b.detourMin);
-  return results;
+  // 상위 6개 실호출 (병렬)
+  await Promise.all(results.slice(0, 6).map(async r => {
+    const placeC = { lat: r.lat, lng: r.lng };
+    const real = await calcDetourMinReal(startC, endC, placeC, totalSec);
+    if (real !== null) { r.detourMin = real; r.detourExact = true; }
+  }));
+  // 나머지는 추정 표시 플래그
+  results.slice(6).forEach(r => { r.detourExact = false; });
+
+  // maxDetourMin 재필터 (실API 기준, 추정은 관대하게 통과)
+  const filtered = results.filter(r => r.detourExact ? r.detourMin <= maxDetourMin : r.detourMin <= maxDetourMin * 1.5);
+  filtered.sort((a, b) => a.detourMin - b.detourMin);
+  return filtered;
 }
 
 // ─────────────────────────────────────────
@@ -1179,19 +1380,19 @@ function drawRoute(startC, endC, places, routeData) {
 // ─────────────────────────────────────────
 // 결과 카드 (v2.1: 실제 데이터만, 버튼 2개)
 // ─────────────────────────────────────────
-function showResults(places) {
+// v4.0.0: 카드 렌더링 (서브탭 필터 후 호출)
+function renderCards(places) {
   const list = document.getElementById('resultList');
   list.innerHTML = '';
-  document.getElementById('sheetCount').textContent = `${places.length}곳 발견`;
 
   if (!places.length) {
     list.innerHTML = `<div class="empty-result"><div class="empty-icon">🔍</div><div>가는 길에 들를 곳을 찾지 못했어요<br>우회 시간을 늘려보거나<br>다른 카테고리를 선택해보세요</div></div>`;
-    document.getElementById('sheet').classList.add('open');
-    document.getElementById('bottomWrap').style.display = 'none';
     return;
   }
 
   places.forEach((p, i) => {
+    // naviToPlace/openKakaoMap/openNaver 는 searchResult.places 인덱스 필요 → 원본 인덱스 유지
+    const origIdx = searchResult.places.indexOf(p);
     const card = document.createElement('div');
     card.className = 'result-card';
     card.style.animationDelay = (i * 0.05) + 's';
@@ -1205,17 +1406,57 @@ function showResults(places) {
         </div>
       </div>
       <div class="rc-badges">
-        <span class="badge badge-detour">🔀 +${p.detourMin}분 (${p.detourKm}km)</span>
+        <span class="badge badge-detour">🔀 ${p.detourExact ? '' : '~'}${p.detourMin}분 (${p.detourKm}km)</span>
       </div>
       <div class="rc-addr">📌 ${p.addr}</div>
       ${p.phone ? `<div class="rc-phone">📞 ${p.phone}</div>` : ''}
       <div class="rc-actions">
-        <button class="btn-rc btn-navi" onclick="event.stopPropagation();naviToPlace(${i})">🧭 여기 들르기 (내비 연결)</button>
-        <button class="btn-rc btn-kakaomap" onclick="event.stopPropagation();openKakaoMap(${i})">🗺️ 카카오맵 연결</button>
+        <button class="btn-rc btn-navi" onclick="event.stopPropagation();naviToPlace(${origIdx})">🧭 여기 들르기 (내비 연결)</button>
+        <button class="btn-rc btn-kakaomap" onclick="event.stopPropagation();openKakaoMap(${origIdx})">🗺️ 카카오맵 연결</button>
       </div>`;
-    card.addEventListener('click', e => { if (!e.target.closest('.rc-actions')) openNaver(i); });
+    card.addEventListener('click', e => { if (!e.target.closest('.rc-actions')) openNaver(origIdx); });
     list.appendChild(card);
   });
+}
+
+// v4.0.0: showResults — 서브탭·배너·명소 필터 처리 후 renderCards 호출
+function showResults(places) {
+  // 명소(AT4): 테마파크·동물원·경기장 제외
+  const AT4_EXCLUDE = /테마파크|놀이공원|동물원|수족관|경기장|스타디움/;
+  places = places.map(p => {
+    if (p.catCode === 'AT4') p._excluded = AT4_EXCLUDE.test(p.catName || '');
+    return p;
+  }).filter(p => !p._excluded);
+
+  currentPlaces = places;
+  document.getElementById('sheetCount').textContent = `${places.length}곳 발견`;
+
+  if (!places.length) {
+    document.getElementById('subTabArea').style.display = 'none';
+    document.getElementById('pharmacyBanner').style.display = 'none';
+    renderCards([]);
+    document.getElementById('sheet').classList.add('open');
+    document.getElementById('bottomWrap').style.display = 'none';
+    return;
+  }
+
+  // 단일 카테고리일 때만 서브탭 노출
+  const cats = getActiveCats();
+  currentSingleCat = cats.length === 1 ? cats[0].cat : null;
+
+  // 약국 배너
+  const hasPM9 = cats.some(c => c.cat === 'PM9');
+  document.getElementById('pharmacyBanner').style.display =
+    (hasPM9 && shouldShowPharmacyBanner()) ? '' : 'none';
+
+  // 서브탭 렌더 및 초기 필터
+  if (currentSingleCat && CAT_SUBTABS[currentSingleCat]) {
+    renderSubTabs(currentSingleCat, places);
+    applySubTabFilter(currentSingleCat, places);
+  } else {
+    document.getElementById('subTabArea').style.display = 'none';
+    renderCards(places);
+  }
 
   document.getElementById('sheet').classList.add('open');
   document.getElementById('bottomWrap').style.display = 'none';
