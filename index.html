@@ -24,10 +24,11 @@
   v3.4.2 - 2026.03.09  내 장소 내보내기, 가져오기 추가
   v4.0.0 - 2026.03.10  카테고리별 서브탭 추가 (맛집/카페/주유소/편의점/마트/숙박/역터미널)
                        약국 야간 배너, 명소 category_name 필터링, 주유소 정렬 토글
-  v4.0.2 - 2026.03.10  카드 표시 개선: 이탈시간 → "들르면 +N분" / 출발지 기준 시간 추가
-                       탐색 반경 확장: 고정 5km → 우회시간 슬라이더 기준 동적 계산
-                       HP8 category_name 필터 제거 (휴게소 0개 버그 수정)
-                       약국 배너 조건 토요일 추가
+  v4.0.3 - 2026.03.10  베이커리 별도 검색(FD6) 후 CE7 결과와 합산
+                       대형마트 분류 기준 개선 (이마트24·홈플러스익스프레스 등 제외)
+                       AT4·HP8·MT1·SW8 category_name 디버그 패널 추가
+                       공통 정렬: 출발지 기준 시간(fromStartMin) 순
+                       역·터미널 탭 순서 변경 및 필터 패턴 보완 (고속·시외 추가)
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -502,7 +503,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.0.2</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.0.3</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -913,6 +914,8 @@ function getActiveCats() {
 // 카카오 categorySearch가 간혹 엉뚱한 업종을 섞어 반환하는 문제 차단
 // HP8은 카카오가 휴게소만 반환하므로 필터 불필요
 const CAT_NAME_FILTER = {
+  // v4.0.3: CE7 베이커리 보완용 FD6 검색 — 베이커리 관련만 통과
+  FD6_BAKERY: p => /베이커리|빵|제과|bakery/i.test(p.category_name + p.place_name),
   AT4: p => /관광|명소|문화|유적|박물관|미술관|공원|전망|해수욕|해변|폭포|계곡/.test(p.category_name),
 };
 
@@ -946,8 +949,17 @@ const CAT_SUBTABS = {
   ],
   MT1: [
     { label: '전체',     filterFn: () => true },
-    { label: '대형마트',  filterFn: p => /이마트|홈플러스|롯데마트|코스트코|하나로마트|농협마트/.test(p.name) },
-    { label: '슈퍼·마트', filterFn: p => !/이마트|홈플러스|롯데마트|코스트코|하나로마트|농협마트/.test(p.name) },
+    // 대형마트: 브랜드명 + 지점명 패턴 / 이마트24·익스프레스·슈퍼 등 소형 제외
+    { label: '대형마트',  filterFn: p => {
+      const n = p.name;
+      if (/이마트24|이마트 에브리데이|홈플러스 익스프레스|롯데슈퍼|하나로슈퍼/i.test(n)) return false;
+      return /이마트|홈플러스|롯데마트|코스트코|메가마트|빅마트|하나로마트|하나로클럽|농협유통/.test(n);
+    }},
+    { label: '슈퍼·마트', filterFn: p => {
+      const n = p.name;
+      if (/이마트24|이마트 에브리데이|홈플러스 익스프레스|롯데슈퍼|하나로슈퍼/i.test(n)) return true;
+      return !/이마트|홈플러스|롯데마트|코스트코|메가마트|빅마트|하나로마트|하나로클럽|농협유통/.test(n);
+    }},
   ],
   AD5: [
     { label: '전체',         filterFn: () => true },
@@ -956,10 +968,10 @@ const CAT_SUBTABS = {
     { label: '모텔',          filterFn: p => /모텔|motel/i.test(p.catName + p.name) },
   ],
   SW8: [
-    { label: '전체',      filterFn: () => true },
-    { label: '기차·철도역', filterFn: p => /기차|철도|KTX|SRT|ITX|무궁화|새마을|역$/.test(p.name) && !/버스|고속|터미널|지하철/.test(p.catName) },
-    { label: '버스터미널',  filterFn: p => /버스|터미널/.test(p.catName + p.name) },
-    { label: '지하철역',   filterFn: p => /지하철|metro|subway/i.test(p.catName) },
+    { label: '전체',        filterFn: () => true },
+    { label: '지하철·전철역', filterFn: p => /지하철|전철/.test(p.catName) },
+    { label: '기차·철도역',  filterFn: p => /기차|철도|KTX|SRT|ITX|무궁화|새마을|고속철|일반철/.test(p.catName + p.name) },
+    { label: '버스터미널',   filterFn: p => /버스|터미널|고속|시외/.test(p.catName + p.name) },
   ],
   // HP8(휴게소)·AT4(명소)·PM9(약국)·BK9(은행ATM): 서브탭 없음
 };
@@ -1233,7 +1245,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
               if (seen.has(p.id)) return;
               seen.add(p.id);
               // v4.0.0: 카테고리 정합성 필터 (HP8 등 엉뚱한 업종 차단)
-              const nameFilter = CAT_NAME_FILTER[cat.cat];
+              const nameFilter = CAT_NAME_FILTER[cat._bakery ? 'FD6_BAKERY' : cat.cat];
               if (nameFilter && !nameFilter(p)) return;
               const placeC = { lat: parseFloat(p.y), lng: parseFloat(p.x) };
               const distFromRoute = distToRoute(placeC, coords);
@@ -1251,7 +1263,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
                 results.push({
                   id: p.id, name: p.place_name,
                   cat: cat.label, icon: cat.icon,
-                  catCode: cat.cat,
+                  catCode: cat._tr8 ? 'SW8' : cat.cat,  // TR8은 SW8 서브탭으로 통합
                   catName: p.category_name || '',
                   addr: p.road_address_name || p.address_name,
                   phone: p.phone || '',
@@ -1275,8 +1287,8 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
 
   // v4.0.1: 상위 6개만 실API 이탈시간 계산, 나머지는 추정값 유지
   document.getElementById('loadingText').textContent = '이탈 시간 계산 중...';
-  // 1차 추정값 기준 정렬
-  results.sort((a, b) => a.detourMin - b.detourMin);
+  // 1차 fromStartMin 기준 정렬
+  results.sort((a, b) => a.fromStartMin - b.fromStartMin);
   // 상위 6개 실호출 (병렬)
   await Promise.all(results.slice(0, 6).map(async r => {
     const placeC = { lat: r.lat, lng: r.lng };
@@ -1288,7 +1300,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
 
   // maxDetourMin 재필터 (실API 기준, 추정은 관대하게 통과)
   const filtered = results.filter(r => r.detourExact ? r.detourMin <= maxDetourMin : r.detourMin <= maxDetourMin * 1.5);
-  filtered.sort((a, b) => a.detourMin - b.detourMin);
+  filtered.sort((a, b) => a.fromStartMin - b.fromStartMin);
   return filtered;
 }
 
@@ -1304,6 +1316,14 @@ async function doSearch() {
   if (!startName) { alert('출발지를 입력해주세요'); return; }
   if (!endName) { alert('목적지를 입력해주세요'); return; }
   const cats = getActiveCats();
+  // v4.0.3: CE7(카페) 선택 시 베이커리(FD6 하위) 별도 검색 추가
+  if (cats.some(c => c.cat === 'CE7') && !cats.some(c => c.cat === '_BAKERY')) {
+    cats.push({ cat: 'FD6', icon: '🥐', label: '베이커리', _bakery: true });
+  }
+  // v4.0.3: SW8(역·터미널) 선택 시 TR8(여객터미널 — KTX·버스터미널) 병행 검색
+  if (cats.some(c => c.cat === 'SW8') && !cats.some(c => c.cat === 'TR8')) {
+    cats.push({ cat: 'TR8', icon: '🚉', label: '역·터미널', _tr8: true });
+  }
   const maxDetour = parseInt(document.getElementById('detourSlider').value);
 
   document.getElementById('btnSearch').disabled = true;
