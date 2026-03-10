@@ -24,7 +24,8 @@
   v3.4.2 - 2026.03.09  내 장소 내보내기, 가져오기 추가
   v4.0.0 - 2026.03.10  카테고리별 서브탭 추가 (맛집/카페/주유소/편의점/마트/숙박/역터미널)
                        약국 야간 배너, 명소 category_name 필터링, 주유소 정렬 토글
-  v4.0.1 - 2026.03.10  이탈시간 계산: 직선 추정 → 카카오모빌리티 실API 호출 (장소당 2회, 병렬)
+  v4.0.2 - 2026.03.10  카드 표시 개선: 이탈시간 → "들르면 +N분" / 출발지 기준 시간 추가
+                       탐색 반경 확장: 고정 5km → 우회시간 슬라이더 기준 동적 계산
                        HP8 category_name 필터 제거 (휴게소 0개 버그 수정)
                        약국 배너 조건 토요일 추가
   경로 위 장소 자동 탐색 앱
@@ -501,7 +502,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.0.1</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.0.2</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -1204,11 +1205,21 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
   const maxPoints = Math.min(16, Math.max(6, Math.round(totalDist / 1000 / 10 * 2)));
   const samplePoints = sampleRoutePoints(coords, totalDist, maxPoints);
   const intervalM = totalDist / samplePoints.length;
-  const radius = Math.min(5000, Math.max(500, intervalM * 0.8));
+  // v4.0.2: 반경을 우회시간 슬라이더 기준으로 확장 (평균속도 × 슬라이더분 × 0.5)
+  const avgSpeedMs = totalDist / totalSec; // m/s
+  const sliderRadius = avgSpeedMs * (maxDetourMin * 60) * 0.5; // 왕복 절반
+  const radius = Math.min(15000, Math.max(1000, sliderRadius));
   // 구간별 최대 장소 수 (출발지 독식 방지)
   const maxPerPoint = Math.ceil(30 / samplePoints.length);
   const seen = new Set();
   const results = [];
+
+  // v4.0.2: 경로 좌표 누적 시간 배열 (출발지 기준 시간 계산용)
+  const cumTimeSec = [0];
+  for (let i = 1; i < coords.length; i++) {
+    const segDist = distKm(coords[i-1], coords[i]) * 1000;
+    cumTimeSec.push(cumTimeSec[i-1] + (segDist / totalDist) * totalSec);
+  }
 
   // 포인트 순서로 먼저 순회 (구간별 균등 커버)
   for (const point of samplePoints) {
@@ -1229,18 +1240,25 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
               if (distFromRoute > radius / 1000) return;
               const detourMin = calcDetourMin(startC, endC, placeC, totalSec, coords, totalDist);
               if (detourMin <= maxDetourMin) {
+                // v4.0.2: 출발지 기준 시간 — 가장 가까운 경로 포인트까지 누적 시간
+                let nearIdx = 0, minD = Infinity;
+                for (let i = 0; i < coords.length; i++) {
+                  const d = distKm(placeC, coords[i]);
+                  if (d < minD) { minD = d; nearIdx = i; }
+                }
+                const fromStartMin = Math.round(cumTimeSec[nearIdx] / 60);
                 pointCount++;
                 results.push({
                   id: p.id, name: p.place_name,
                   cat: cat.label, icon: cat.icon,
-                  catCode: cat.cat,                          // v4.0.0: 서브탭 필터용
-                  catName: p.category_name || '',            // v4.0.0: 서브탭 필터용
+                  catCode: cat.cat,
+                  catName: p.category_name || '',
                   addr: p.road_address_name || p.address_name,
                   phone: p.phone || '',
                   url: p.place_url || '',
                   lat: placeC.lat, lng: placeC.lng,
                   detourMin,
-                  detourKm: distFromRoute.toFixed(1)
+                  fromStartMin                              // v4.0.2: 출발지 기준 시간
                 });
               }
             });
@@ -1406,7 +1424,8 @@ function renderCards(places) {
         </div>
       </div>
       <div class="rc-badges">
-        <span class="badge badge-detour">🔀 ${p.detourExact ? '' : '~'}${p.detourMin}분 (${p.detourKm}km)</span>
+        <span class="badge badge-detour">🔀 들르면 +${p.detourMin}분</span>
+        <span class="badge badge-detour" style="margin-left:6px;">🕐 출발지에서 ${p.fromStartMin}분</span>
       </div>
       <div class="rc-addr">📌 ${p.addr}</div>
       ${p.phone ? `<div class="rc-phone">📞 ${p.phone}</div>` : ''}
