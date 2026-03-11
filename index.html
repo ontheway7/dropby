@@ -29,7 +29,7 @@
                        AT4·HP8·MT1·SW8 category_name 디버그 패널 추가
                        공통 정렬: 출발지 기준 시간(fromStartMin) 순
                        역·터미널 탭 순서 변경 및 필터 패턴 보완 (고속·시외 추가)
-  v4.1.1 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
+  v4.1.4 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
                        주유소 카드 유가 배지 표시
                        카테고리 텍스트 흰색(흐리게) + 선택 시 초록 유지
                        분포 개선 2라운드 채우기, 결과 0개 서브탭 자동 숨김
@@ -218,10 +218,10 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 
 /* autocomplete */
 .ac-list {
-  position:absolute; left:0; right:0; top:calc(100% + 4px);
+  position:absolute; left:0; right:0; bottom:calc(100% + 4px); top:auto;
   background:var(--card); border:1px solid var(--accent3);
   border-radius:10px; overflow:hidden; z-index:999;
-  box-shadow:0 8px 24px rgba(0,0,0,0.6); display:none;
+  box-shadow:0 -4px 24px rgba(0,0,0,0.6); display:none;
 }
 .ac-item {
   display:flex; align-items:center; justify-content:space-between; gap:4px;
@@ -517,7 +517,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.1</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.4</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -626,7 +626,7 @@ input[type=range]::-webkit-slider-thumb {
       <a href="https://m.pharm114.or.kr" target="_blank" style="font-size:0.78rem; color:#fb923c; text-decoration:underline; margin-left:4px;">휴일지킴이약국 (모바일)</a>
       <a href="https://www.pharm114.or.kr" target="_blank" style="font-size:0.78rem; color:#fb923c; text-decoration:underline; margin-left:6px; opacity:0.7;">PC</a>
     </div>
-    <!-- v4.1.1: 졸음쉼터 배너 (경로 2시간 초과 시) -->
+    <!-- v4.1.4: 졸음쉼터 배너 (경로 2시간 초과 시) -->
     <div id="drowsyBanner" style="display:none; padding:10px 14px; background:rgba(56,189,248,0.10); border-bottom:1px solid rgba(56,189,248,0.25);">
       <span id="drowsyBannerText" style="font-size:0.78rem; color:#38bdf8;">💤 경로 상 졸음쉼터를 확인하는 중...</span>
     </div>
@@ -929,7 +929,7 @@ function getActiveCats() {
 }
 
 // ─────────────────────────────────────────
-// v4.1.1: 카테고리 코드별 category_name 정합성 필터
+// v4.1.4: 카테고리 코드별 category_name 정합성 필터
 const CAT_NAME_FILTER = {
   // CE7 베이커리 보완용 FD6 검색 — 베이커리 관련만 통과
   FD6_BAKERY: p => /베이커리|빵|제과|bakery/i.test(p.category_name + p.place_name),
@@ -943,7 +943,7 @@ const CAT_NAME_FILTER = {
 
 
 // ─────────────────────────────────────────
-// v4.1.1: 카테고리별 서브탭 정의
+// v4.1.4: 카테고리별 서브탭 정의
 const CAT_SUBTABS = {
   FD6: [
     { label: '전체',  filterFn: () => true },
@@ -960,7 +960,7 @@ const CAT_SUBTABS = {
   ],
   OL7: [
     { label: '전체',     filterFn: () => true },
-    { label: '고급휘발유', filterFn: p => /고급|프리미엄/.test(p.catName) },
+    { label: '고급휘발유', filterFn: p => p._oilType === 'premium' },
     { label: 'LPG',      filterFn: p => /LPG|충전소/.test(p.catName) },
   ],
   CS2: [
@@ -997,10 +997,18 @@ const CAT_SUBTABS = {
   ],
   AT4: [
     { label: '전체',      filterFn: () => true },
-    { label: '자연',      filterFn: p => /산|해변|해수욕|섬|폭포|하천|호수|공원|계곡|자연/.test(p.catName) },
+    { label: '자연',      filterFn: p => /산|해변|해수욕|섬|폭포|하천|호수|공원|계곡|자연|저수지|수목원|농원|동물원|식물원|온천/.test(p.catName) },
     { label: '역사·유산', filterFn: p => /문화유적|고궁|사찰|성곽|유적|한옥/.test(p.catName) || /절,사찰|종교/.test(p.catName) },
     { label: '문화·전시', filterFn: p => /박물관|미술관|공연장|문화센터|전시|문화시설/.test(p.catName) || p._ct1 === true },
     { label: '랜드마크',  filterFn: p => /전망대|테마거리|테마파크|광장|타워|시장/.test(p.catName) || /가정,생활 > 시장/.test(p.catName) },
+    { label: '기타', filterFn: p => {
+      const c = p.catName;
+      const inNature   = /산|해변|해수욕|섬|폭포|하천|호수|공원|계곡|자연|저수지|수목원|농원|동물원|식물원|온천/.test(c);
+      const inHistory  = /문화유적|고궁|사찰|성곽|유적|한옥/.test(c);
+      const inCulture  = /박물관|미술관|공연장|문화센터|전시|문화시설/.test(c) || p._ct1 === true;
+      const inLandmark = /전망대|테마거리|테마파크|광장|타워|시장/.test(c) || /가정,생활 > 시장/.test(c);
+      return !inNature && !inHistory && !inCulture && !inLandmark;
+    }},
   ],
   // PM9(약국)·BK9(은행ATM): 서브탭 없음
 };
@@ -1011,10 +1019,10 @@ let activeSubTab = {};
 let currentPlaces = [];
 // 현재 단일 카테고리 코드 (서브탭 표시 여부 판단용)
 let currentSingleCat = null;
-// v4.1.1: 주유소 저가순 정렬 토글
+// v4.1.4: 주유소 저가순 정렬 토글
 let ol7SortByPrice = false;
 
-// v4.1.1: 서브탭 렌더링 (0개 탭 자동 숨김)
+// v4.1.4: 서브탭 렌더링 (0개 탭 자동 숨김)
 function renderSubTabs(catCode, places) {
   const area = document.getElementById('subTabArea');
   const row  = document.getElementById('subTabRow');
@@ -1026,12 +1034,16 @@ function renderSubTabs(catCode, places) {
   row.innerHTML = '';
   const curIdx = activeSubTab[catCode] ?? 0;
 
+  // 보이는 탭 수 미리 계산 (5개 이하: flex균등, 6개 이상: flex:0 스크롤)
+  const visibleCount = tabs.filter((t, i) => i === 0 || places.filter(p => t.filterFn(p)).length > 0).length;
+  const tabFlex = visibleCount <= 5 ? '1' : '0 0 auto';
+
   tabs.forEach((t, i) => {
     // 전체 탭은 항상 노출, 나머지는 해당 결과가 1개 이상일 때만 노출
     if (i !== 0 && places.filter(p => t.filterFn(p)).length === 0) return;
     const btn = document.createElement('button');
     btn.className = 'tab' + (i === curIdx ? ' on' : '');
-    btn.style.cssText = 'white-space:nowrap; flex-shrink:0;';
+    btn.style.cssText = `white-space:nowrap; flex-shrink:0; flex:${tabFlex};`;
     btn.textContent = t.label;
     btn.onclick = () => {
       activeSubTab[catCode] = i;
@@ -1114,7 +1126,7 @@ function getCoords(name) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.1: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
+// v4.1.4: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
 // ─────────────────────────────────────────
 async function getRoadRoute(startC, endC, waypointCs = []) {
   let url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`;
@@ -1136,7 +1148,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   }
   const route = data.routes[0];
   const coords = [];
-  // v4.1.1: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
+  // v4.1.4: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
   const highwayCoordSet = new Set();
   let inHighway = false;
   for (const section of route.sections) {
@@ -1159,7 +1171,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   return { coords, totalSec, totalDist, highwayCoordSet };
 }
 
-// v4.1.1: 좌표가 고속도로 구간인지 확인
+// v4.1.4: 좌표가 고속도로 구간인지 확인
 function isHighwayPoint(pt, highwayCoordSet) {
   return pt.highway === true || highwayCoordSet?.has(`${pt.lng},${pt.lat}`);
 }
@@ -1240,7 +1252,7 @@ function calcDetourMin(startC, endC, placeC, totalSec, routeCoords, totalDist) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.1: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
+// v4.1.4: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
 // 출발지→[장소N] 1회 + [장소N]→목적지 1회 = 총 2회 호출
 // ─────────────────────────────────────────
 async function calcDetourMinBatch(startC, endC, places, totalSec) {
@@ -1299,6 +1311,7 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
         const sec2 = fromPlace[String(i)];
         if (sec1 != null && sec2 != null) {
           p.detourMin = Math.round(Math.max(0, (sec1 + sec2 - totalSec) / 60));
+          p.fromStartMin = Math.round(sec1 / 60); // v4.1.4: 실API 기반 정확한 출발지 기준 시간
           p.detourExact = true;
         }
         // 매칭 실패 시 추정값 유지 (detourExact = false 명시)
@@ -1314,7 +1327,7 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.1: 카테고리별 탐색 반경 자동 확장 설정
+// v4.1.4: 카테고리별 탐색 반경 자동 확장 설정
 // autoExpand: true=확장, msg: 확장 시 토스트 멘트 (null이면 멘트 없음)
 // noHighway: true=고속도로 구간 제외
 // rearBias: true=후반 구간 집중 (숙박: 중간~도착지)
@@ -1331,7 +1344,7 @@ const CAT_SEARCH_CONFIG = {
   SW8:  { autoExpand: false, msg: null,                          noHighway: true,  rearBias: false },
 };
 
-// v4.1.1: 실제 도로 경로 기반 장소 검색
+// v4.1.4: 실제 도로 경로 기반 장소 검색
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
   const { coords, totalSec, totalDist, highwayCoordSet } = routeData;
   const maxPoints = Math.min(16, Math.max(6, Math.round(totalDist / 1000 / 10 * 2)));
@@ -1349,7 +1362,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     cumTimeSec.push(cumTimeSec[i-1] + (segDist / totalDist) * totalSec);
   }
 
-  // v4.1.1: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
+  // v4.1.4: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
   const effectiveRadius = (ol7SortByPrice && cats.some(c => c.cat === 'OL7'))
     ? Math.min(20000, baseRadius * 3)
     : baseRadius;
@@ -1485,28 +1498,51 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     }
   }
 
-  // v4.1.1: 추정값으로 먼저 필터링 후 즉시 반환 (결과 빠르게 표시)
+  // v4.1.4: 추정값으로 먼저 필터링 후 즉시 반환 (결과 빠르게 표시)
   results.sort((a, b) => a.fromStartMin - b.fromStartMin);
   results.forEach(r => { r.detourExact = false; });
   const filtered = results.filter(r => r.detourMin <= maxDetourMin * 1.5);
   filtered.sort((a, b) => a.fromStartMin - b.fromStartMin);
 
-  // 백그라운드에서 이탈시간 정확값 계산 후 카드 업데이트
+  // 백그라운드에서 이탈시간 정확값 계산 후 숫자만 조용히 업데이트 (깜박임 없음)
   const _startC = startC, _endC = endC, _totalSec = totalSec;
   setTimeout(async () => {
     try {
       await calcDetourMinBatch(_startC, _endC, filtered, _totalSec);
       filtered.forEach(r => { if (r.detourExact == null) r.detourExact = false; });
-      const refined = filtered.filter(r => r.detourMin <= maxDetourMin * (r.detourExact ? 1 : 1.5));
+      // fromStartMin 기준으로 카드 재정렬 (DOM 순서 업데이트)
+      const sheet = document.getElementById('resultList');
+      if (sheet) {
+        // fromStartMin 기준 재정렬 후 DOM 순서 업데이트
+        filtered.sort((a, b) => a.fromStartMin - b.fromStartMin);
+        const order = {};
+        filtered.forEach((r, i) => { order[r.id] = i; });
+        const cards = Array.from(sheet.querySelectorAll('.result-card'));
+        cards.sort((a, b) => (order[a.dataset.id] ?? 999) - (order[b.dataset.id] ?? 999));
+        cards.forEach(c => sheet.appendChild(c));
+      }
+      // 이탈시간 초과된 카드만 숨기고, 나머지는 숫자만 업데이트 (리렌더 없음)
+      filtered.forEach(r => {
+        const el = document.getElementById('detour-' + r.id);
+        if (!el) return;
+        const card = el.closest('.rc');
+        if (!card) return;
+        if (r.detourExact && r.detourMin > maxDetourMin) {
+          card.style.display = 'none'; // 정확값 기준 초과 시 조용히 숨김
+        } else {
+          el.textContent = '🔀 들르면 +' + r.detourMin + '분';
+          const fsEl = document.getElementById('fromstart-' + r.id);
+          if (fsEl) fsEl.textContent = '🕐 출발지에서 ' + r.fromStartMin + '분';
+        }
+      });
+      // sheetCount 업데이트
       if (searchResult) {
-        searchResult.places = refined;
-        const activeCat = getActiveCats();
-        if (activeCat.length === 1) applySubTabFilter(activeCat[0].cat, refined);
-        else renderCards(refined);
-        document.getElementById('sheetCount').textContent = refined.length + '곳 발견';
+        const visibleCount = filtered.filter(r => !r.detourExact || r.detourMin <= maxDetourMin).length;
+        document.getElementById('sheetCount').textContent = visibleCount + '곳 발견';
+        searchResult.places = filtered.filter(r => !r.detourExact || r.detourMin <= maxDetourMin);
       }
     } catch(e) {
-      console.warn('이탈시간 배치 계산 실패, 추정값 유지:', e.message);
+      // 실패 시 추정값 유지, 아무것도 안 함
     }
   }, 100);
 
@@ -1514,7 +1550,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
 }
 
 // ─────────────────────────────────────────
-// v4.1.1: 오피넷 유가 조회
+// v4.1.4: 오피넷 유가 조회
 // ─────────────────────────────────────────
 const OPINET_KEY = 'MyUPdfs6QWQiIMftuDFONfKGxQebYXEYZlmpNj2QTw';
 const DROWSY_KEY = '1HW17T53FO23BH9E';
@@ -1530,7 +1566,7 @@ async function fetchOpinetPrices(lat, lng, radius = 5) {
   } catch(e) { return null; }
 }
 
-// v4.1.1: 졸음쉼터 조회 (경로 2시간 초과 시)
+// v4.1.4: 졸음쉼터 조회 (경로 2시간 초과 시)
 async function fetchDrowsyStations(routeCoords, totalSec) {
   if (totalSec < 7200) return null; // 2시간 미만 → 미표시
   try {
@@ -1629,8 +1665,8 @@ async function doSearch() {
       throw searchErr;
     }
 
-    // 주유소 + 저가순 모드: 오피넷 유가 연동
-    if (cats.some(c => c.cat === 'OL7') && ol7SortByPrice) {
+    // 주유소 선택 시 오피넷 유가 연동 (유종 태깅 + 저가순 정렬)
+    if (cats.some(c => c.cat === 'OL7')) {
       document.getElementById('loadingText').textContent = '유가 정보 조회 중...';
 
       const ol7Places = places.filter(p => p.catCode === 'OL7');
@@ -1668,6 +1704,7 @@ async function doSearch() {
             .map(s => ({
               normNm: normName(s.OS_NM),
               price: Number(s.PRICE),
+              prodcd: s.PRODCD || '',   // B027=고급휘발유, C004=LPG
               lat: parseFloat(s.GIS_Y_COOR),
               lng: parseFloat(s.GIS_X_COOR),
             }));
@@ -1695,18 +1732,25 @@ async function doSearch() {
                 .sort((a, b) => a.dist - b.dist);
               if (nearby.length) match = nearby[0].o;
             }
-            if (match) p._oilPrice = match.price;
+            if (match) {
+              p._oilPrice = match.price;
+              if (match.prodcd === 'B027') p._oilType = 'premium';
+              else if (match.prodcd === 'C004') p._oilType = 'lpg';
+              else p._oilType = 'regular';
+            }
           });
 
-          // 저가순 정렬 (가격 없는 것은 뒤로)
-          places.sort((a, b) => {
-            if (a.catCode === 'OL7' && b.catCode === 'OL7') {
-              if (a._oilPrice && b._oilPrice) return a._oilPrice - b._oilPrice;
-              if (a._oilPrice) return -1;
-              if (b._oilPrice) return 1;
-            }
-            return a.fromStartMin - b.fromStartMin;
-          });
+          // 저가순 모드일 때만 가격순 정렬
+          if (ol7SortByPrice) {
+            places.sort((a, b) => {
+              if (a.catCode === 'OL7' && b.catCode === 'OL7') {
+                if (a._oilPrice && b._oilPrice) return a._oilPrice - b._oilPrice;
+                if (a._oilPrice) return -1;
+                if (b._oilPrice) return 1;
+              }
+              return a.fromStartMin - b.fromStartMin;
+            });
+          }
         }
       }
     }
@@ -1804,6 +1848,7 @@ function renderCards(places) {
     const origIdx = searchResult.places.indexOf(p);
     const card = document.createElement('div');
     card.className = 'result-card';
+    card.dataset.id = p.id;
     card.style.animationDelay = (i * 0.05) + 's';
     card.style.cursor = 'pointer';
     card.innerHTML = `
@@ -1815,8 +1860,8 @@ function renderCards(places) {
         </div>
       </div>
       <div class="rc-badges">
-        <span class="badge badge-detour">🔀 들르면 +${p.detourMin}분</span>
-        <span class="badge badge-detour" style="margin-left:6px;">🕐 출발지에서 ${p.fromStartMin}분</span>
+        <span class="badge badge-detour" id="detour-${p.id}">🔀 들르면 +${p.detourMin}분</span>
+        <span class="badge badge-detour" id="fromstart-${p.id}" style="margin-left:6px;">🕐 출발지에서 ${p.fromStartMin}분</span>
         ${p._oilPrice ? `<span class="badge" style="margin-left:6px;background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);">⛽ ${p._oilPrice.toLocaleString()}원/L</span>` : ''}
       </div>
       <div class="rc-addr">📌 ${p.addr}</div>
@@ -1830,7 +1875,7 @@ function renderCards(places) {
   });
 }
 
-// v4.1.1: showResults — 서브탭·배너 처리 후 renderCards 호출
+// v4.1.4: showResults — 서브탭·배너 처리 후 renderCards 호출
 function showResults(places) {
   // 졸음쉼터 배너 초기화
   document.getElementById('drowsyBanner').style.display = 'none';
