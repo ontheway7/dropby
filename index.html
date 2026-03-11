@@ -1396,15 +1396,24 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     } catch(e) { resolve([]); }
   });
 
+  // DEBUG: 화면에 표시
+  const _debugEl = document.createElement('div');
+  _debugEl.id = 'debugBox';
+  _debugEl.style = 'position:fixed;top:60px;left:0;right:0;background:rgba(0,0,0,0.85);color:#0f0;font-size:11px;padding:8px;z-index:9999;max-height:40vh;overflow-y:auto;white-space:pre-wrap;';
+  document.body.appendChild(_debugEl);
+  let _debugDistFail = 0, _debugDetourFail = 0, _debugAdded = 0;
+  _debugEl.textContent = `totalDist=${totalDist.toFixed(0)}m totalSec=${totalSec.toFixed(0)}s\neffRadius=${effectiveRadius.toFixed(0)}m maxDetour=${maxDetourMin}min\n`;
+
   const addResult = (p, catMeta, sw8type = null, isCT1 = false, isDessert = false) => {
     if (seen.has(p.id)) return false;
     const filterKey = catMeta._bakery ? 'FD6_BAKERY' : catMeta._dessert ? 'FD6_DESSERT' : catMeta._ct1 ? 'CT1' : CAT_NAME_FILTER[catMeta.cat] ? catMeta.cat : null;
     if (filterKey && CAT_NAME_FILTER[filterKey] && !CAT_NAME_FILTER[filterKey](p)) return false;
     const placeC = { lat: parseFloat(p.y), lng: parseFloat(p.x) };
     const distFromRoute = distToRoute(placeC, coords);
-    if (distFromRoute > effectiveRadius / 1000) return false;
+    if (distFromRoute > effectiveRadius / 1000) { _debugDistFail++; _debugEl.textContent += `distFail: ${p.place_name} ${distFromRoute.toFixed(2)}km > ${(effectiveRadius/1000).toFixed(2)}km\n`; return false; }
     const detourMin = calcDetourMin(startC, endC, placeC, totalSec, coords, totalDist);
-    if (detourMin > maxDetourMin) return false;
+    if (detourMin > maxDetourMin) { _debugDetourFail++; _debugEl.textContent += `detourFail: ${p.place_name} ${detourMin}min > ${maxDetourMin}min\n`; return false; }
+    _debugAdded++;
     let nearIdx = 0, minD = Infinity;
     for (let i = 0; i < coords.length; i++) {
       const d = distKm(placeC, coords[i]);
@@ -1425,6 +1434,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
       ...(isCT1 && { _ct1: true }),
       ...(isDessert && { _dessert: true }),
     });
+    _debugEl.textContent += `✅ added(${_debugAdded}) distFail(${_debugDistFail}) detourFail(${_debugDetourFail})\n`;
     return true;
   };
 
