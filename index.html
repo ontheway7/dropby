@@ -735,12 +735,23 @@ function loadKakaoSDK() {
 async function initApp() {
   // 헤더 높이만큼 map 상단 여백 동적 설정 (새로고침 포함)
   function adjustMapTop() {
-    const h = document.querySelector('.header');
-    const m = document.getElementById('map');
-    if (h && m) m.style.paddingTop = h.offsetHeight + 'px';
+  const h = document.querySelector('.header');
+  const m = document.getElementById('map');
+  if (h && m) m.style.paddingTop = h.offsetHeight + 'px';
   }
+
   adjustMapTop();
+
+  // 폰트 로딩 이후 다시 계산 (PWA 새로고침 문제 해결)
+  if (document.fonts) {
+    document.fonts.ready.then(adjustMapTop);
+  }
+
+  // 화면 크기 변경 대응
   window.addEventListener('resize', adjustMapTop);
+
+  // PWA 캐시 복귀 대응
+  window.addEventListener('pageshow', adjustMapTop);
 
   showToast('지도 로딩 중...');
   try {
