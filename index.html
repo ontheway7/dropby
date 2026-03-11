@@ -1479,19 +1479,31 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     }
   }
 
-  // v4.1.1: 다중목적지/다중출발지 API로 전체 이탈시간 일괄 계산 (2회 호출)
-  document.getElementById('loadingText').textContent = '이탈 시간 계산 중...';
+  // v4.1.1: 추정값으로 먼저 필터링 후 즉시 반환 (결과 빠르게 표시)
   results.sort((a, b) => a.fromStartMin - b.fromStartMin);
-  try {
-    await calcDetourMinBatch(startC, endC, results, totalSec);
-  } catch(e) {
-    if (e.message === 'KAKAO_QUOTA') throw e;
-  }
-  // detourExact 없는 것은 추정값 플래그
-  results.forEach(r => { if (r.detourExact == null) r.detourExact = false; });
-
-  const filtered = results.filter(r => r.detourExact ? r.detourMin <= maxDetourMin : r.detourMin <= maxDetourMin * 1.5);
+  results.forEach(r => { r.detourExact = false; });
+  const filtered = results.filter(r => r.detourMin <= maxDetourMin * 1.5);
   filtered.sort((a, b) => a.fromStartMin - b.fromStartMin);
+
+  // 백그라운드에서 이탈시간 정확값 계산 후 카드 업데이트
+  const _startC = startC, _endC = endC, _totalSec = totalSec;
+  setTimeout(async () => {
+    try {
+      await calcDetourMinBatch(_startC, _endC, filtered, _totalSec);
+      filtered.forEach(r => { if (r.detourExact == null) r.detourExact = false; });
+      const refined = filtered.filter(r => r.detourMin <= maxDetourMin * (r.detourExact ? 1 : 1.5));
+      if (searchResult) {
+        searchResult.places = refined;
+        const activeCat = getActiveCats();
+        if (activeCat.length === 1) applySubTabFilter(activeCat[0].cat, refined);
+        else renderCards(refined);
+        document.getElementById('sheetCount').textContent = refined.length + '곳 발견';
+      }
+    } catch(e) {
+      console.warn('이탈시간 배치 계산 실패, 추정값 유지:', e.message);
+    }
+  }, 100);
+
   return filtered;
 }
 
