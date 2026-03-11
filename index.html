@@ -578,9 +578,9 @@ input[type=range]::-webkit-slider-thumb {
           <div class="cat-chip" data-cat="CS2" onclick="toggleCat(this)"><span class="icon">🏪</span>편의점</div>
           <div class="cat-chip" data-cat="PM9" onclick="toggleCat(this)"><span class="icon">💊</span>약국</div>
           <div class="cat-chip" data-cat="OL7" onclick="toggleCat(this)"><span class="icon">⛽</span>주유소</div>
-          <div class="cat-chip" data-cat="BK9" onclick="toggleCat(this)"><span class="icon">🏦</span>은행·ATM</div>
           <div class="cat-chip" data-cat="AT4" onclick="toggleCat(this)"><span class="icon">🏛️</span>명소</div>
           <div class="cat-chip" data-cat="MT1" onclick="toggleCat(this)"><span class="icon">🛒</span>마트</div>
+          <div class="cat-chip" data-cat="BK9" onclick="toggleCat(this)"><span class="icon">🏦</span>은행·ATM</div>
           <div class="cat-chip" data-cat="AD5" onclick="toggleCat(this)"><span class="icon">🏨</span>숙박</div>
           <div class="cat-chip" data-cat="SW8" onclick="toggleCat(this)"><span class="icon">🚉</span>역·터미널</div>
         </div>
@@ -1310,17 +1310,18 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
 // v4.1.0: 카테고리별 탐색 반경 자동 확장 설정
 // autoExpand: true=확장, msg: 확장 시 토스트 멘트 (null이면 멘트 없음)
 // noHighway: true=고속도로 구간 제외
+// rearBias: true=후반 구간 집중 (숙박: 중간~도착지)
 const CAT_SEARCH_CONFIG = {
-  FD6:  { autoExpand: true,  msg: null,                          noHighway: true  },
-  CE7:  { autoExpand: true,  msg: null,                          noHighway: true  },
-  CS2:  { autoExpand: true,  msg: '근처에 편의점이 없어 범위를 넓혔어요', noHighway: true  },
-  PM9:  { autoExpand: true,  msg: '근처에 약국이 없어 범위를 넓혔어요',   noHighway: true  },
-  OL7:  { autoExpand: true,  msg: '근처에 주유소가 없어 범위를 넓혔어요', noHighway: true  },
-  AT4:  { autoExpand: false, msg: null,                          noHighway: false },
-  MT1:  { autoExpand: true,  msg: null,                          noHighway: true  },
-  BK9:  { autoExpand: true,  msg: null,                          noHighway: true  },
-  AD5:  { autoExpand: false, msg: null,                          noHighway: true  },
-  SW8:  { autoExpand: false, msg: null,                          noHighway: true  },
+  FD6:  { autoExpand: true,  msg: null,                          noHighway: true,  rearBias: false },
+  CE7:  { autoExpand: true,  msg: null,                          noHighway: true,  rearBias: false },
+  CS2:  { autoExpand: true,  msg: '근처에 편의점이 없어 범위를 넓혔어요', noHighway: true,  rearBias: false },
+  PM9:  { autoExpand: true,  msg: '근처에 약국이 없어 범위를 넓혔어요',   noHighway: true,  rearBias: false },
+  OL7:  { autoExpand: true,  msg: '근처에 주유소가 없어 범위를 넓혔어요', noHighway: true,  rearBias: false },
+  AT4:  { autoExpand: false, msg: null,                          noHighway: false, rearBias: false },
+  MT1:  { autoExpand: true,  msg: null,                          noHighway: true,  rearBias: false },
+  BK9:  { autoExpand: true,  msg: null,                          noHighway: true,  rearBias: false },
+  AD5:  { autoExpand: false, msg: null,                          noHighway: true,  rearBias: true  }, // 중간~도착지 구간
+  SW8:  { autoExpand: false, msg: null,                          noHighway: true,  rearBias: false },
 };
 
 // v4.1.0: 실제 도로 경로 기반 장소 검색
@@ -1341,11 +1342,22 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     cumTimeSec.push(cumTimeSec[i-1] + (segDist / totalDist) * totalSec);
   }
 
-  // 카테고리별로 고속도로 제외 여부 적용한 포인트 목록 생성
+  // v4.1.0: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
+  const effectiveRadius = (ol7SortByPrice && cats.some(c => c.cat === 'OL7'))
+    ? Math.min(20000, baseRadius * 3)
+    : baseRadius;
+
+  // 카테고리별로 고속도로 제외 + rearBias(숙박: 중간~도착지) 적용한 포인트 목록 생성
   const getCatPoints = (catCode) => {
     const cfg = CAT_SEARCH_CONFIG[catCode] || {};
-    if (!cfg.noHighway) return samplePoints;
-    return samplePoints.filter(p => !isHighwayPoint(p, highwayCoordSet));
+    let pts = cfg.noHighway
+      ? samplePoints.filter(p => !isHighwayPoint(p, highwayCoordSet))
+      : samplePoints;
+    // rearBias: 전체 포인트의 후반 50% 이후만 사용 (숙박 = 중간~도착지)
+    if (cfg.rearBias && pts.length > 2) {
+      pts = pts.slice(Math.floor(pts.length / 2));
+    }
+    return pts;
   };
 
   // 카카오 Places 검색 래퍼 (에러 처리 포함)
@@ -1383,7 +1395,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     if (filterKey && CAT_NAME_FILTER[filterKey] && !CAT_NAME_FILTER[filterKey](p)) return false;
     const placeC = { lat: parseFloat(p.y), lng: parseFloat(p.x) };
     const distFromRoute = distToRoute(placeC, coords);
-    if (distFromRoute > baseRadius / 1000) return false;
+    if (distFromRoute > effectiveRadius / 1000) return false;
     const detourMin = calcDetourMin(startC, endC, placeC, totalSec, coords, totalDist);
     if (detourMin > maxDetourMin) return false;
     let nearIdx = 0, minD = Infinity;
@@ -1417,9 +1429,9 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
       let data;
       if (cat._keyword) {
         // SW8 키워드 병행 검색 (기차역, 버스터미널)
-        data = await psKeyword(cat._keyword, point, baseRadius);
+        data = await psKeyword(cat._keyword, point, effectiveRadius);
       } else {
-        data = await psSearch(catCode, point, baseRadius);
+        data = await psSearch(catCode, point, effectiveRadius);
         if (data?._error === 'KAKAO_QUOTA') throw new Error('KAKAO_QUOTA');
       }
       let pointCount = 0;
@@ -1442,7 +1454,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     if (catResults.length >= 5) continue;
     const cfg = CAT_SEARCH_CONFIG[catCode] || {};
     if (!cfg.autoExpand) continue;
-    const expandRadius = baseRadius * 2;
+    const expandRadius = effectiveRadius * 2;
     const points = getCatPoints(catCode);
     for (const point of points) {
       let data;
