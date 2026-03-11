@@ -517,7 +517,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.72</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.7</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -739,22 +739,10 @@ async function initApp() {
     const m = document.getElementById('map');
     if (h && m) m.style.paddingTop = h.offsetHeight + 'px';
   }
-  
-  // DOM 완전히 생성 후 실행
-  window.addEventListener('load', adjustMapTop);
-  
-  // 폰트 로딩 후 실행
-  if (document.fonts) {
-    document.fonts.ready.then(adjustMapTop);
-  }
-  
-  // 화면 변경 대응
+  adjustMapTop();
   window.addEventListener('resize', adjustMapTop);
-  
-  // PWA 복귀 대응
-  window.addEventListener('pageshow', adjustMapTop);
-  
-   showToast('지도 로딩 중...');
+
+  showToast('지도 로딩 중...');
   try {
     await loadKakaoSDK();
     kakaoReady = true;
