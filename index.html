@@ -29,7 +29,7 @@
                        AT4·HP8·MT1·SW8 category_name 디버그 패널 추가
                        공통 정렬: 출발지 기준 시간(fromStartMin) 순
                        역·터미널 탭 순서 변경 및 필터 패턴 보완 (고속·시외 추가)
-  v4.1.6 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
+  v4.1.7 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
                        주유소 카드 유가 배지 표시
                        카테고리 텍스트 흰색(흐리게) + 선택 시 초록 유지
                        분포 개선 2라운드 채우기, 결과 0개 서브탭 자동 숨김
@@ -85,7 +85,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 16px 12px;
   background:var(--bg); border-bottom:1px solid var(--border);
-  position:absolute; top:0; left:0; right:0; z-index:10;
+  position:relative; z-index:10;
 }
 .logo { display:flex; align-items:baseline; gap:8px; }
 .logo-main { font-family:'Black Han Sans',sans-serif; font-size:1.25rem; letter-spacing:1px; color:var(--accent); }
@@ -517,7 +517,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.6</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.7</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -622,9 +622,9 @@ input[type=range]::-webkit-slider-thumb {
     </div>
     <!-- v4.0.0: 약국 야간 배너 (야간·공휴일 조건부 노출) -->
     <div id="pharmacyBanner" style="display:none; padding:10px 14px; background:rgba(251,146,60,0.12); border-bottom:1px solid rgba(251,146,60,0.3);">
-      <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문을 열었는지 꼭 확인하고 가세요 → </span><a href="https://www.pharm114.or.kr" target="_blank" rel="noreferrer" style="font-size:0.78rem; color:#fb923c; text-decoration:underline;">휴일지킴이약국 →</a>
+      <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문을 열었는지 꼭 확인하고 가세요 </span><a href="https://www.pharm114.or.kr" target="_blank" rel="noreferrer" style="font-size:0.78rem; color:#fb923c; text-decoration:underline;">휴일지킴이약국</a>
     </div>
-    <!-- v4.1.6: 졸음쉼터 배너 (경로 2시간 초과 시) -->
+    <!-- v4.1.7: 졸음쉼터 배너 (경로 2시간 초과 시) -->
     <div id="drowsyBanner" style="display:none; padding:10px 14px; background:rgba(56,189,248,0.10); border-bottom:1px solid rgba(56,189,248,0.25);">
       <span id="drowsyBannerText" style="font-size:0.78rem; color:#38bdf8;">💤 경로 상 졸음쉼터를 확인하는 중...</span>
     </div>
@@ -710,7 +710,7 @@ function savePlaces(arr) { localStorage.setItem(LS_PLACES, JSON.stringify(arr));
 // 토스트
 // ─────────────────────────────────────────
 let toastTimer = null;
-function showToast(msg, duration = 800) {
+function showToast(msg, duration = 500) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
@@ -936,7 +936,7 @@ function getActiveCats() {
 }
 
 // ─────────────────────────────────────────
-// v4.1.6: 카테고리 코드별 category_name 정합성 필터
+// v4.1.7: 카테고리 코드별 category_name 정합성 필터
 const CAT_NAME_FILTER = {
   // CE7 베이커리 보완용 FD6 검색 — 베이커리 관련만 통과
   FD6_BAKERY: p => /베이커리|빵|제과|bakery/i.test(p.category_name + p.place_name),
@@ -950,7 +950,7 @@ const CAT_NAME_FILTER = {
 
 
 // ─────────────────────────────────────────
-// v4.1.6: 카테고리별 서브탭 정의
+// v4.1.7: 카테고리별 서브탭 정의
 const CAT_SUBTABS = {
   FD6: [
     { label: '전체',  filterFn: () => true },
@@ -981,13 +981,13 @@ const CAT_SUBTABS = {
     { label: '전체',    filterFn: () => true },
     { label: '대형마트', filterFn: p => {
       const n = p.name;
-      if (/이마트24|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return false;
-      return /이마트|홈플러스|롯데마트|코스트코|메가마트|빅마트|하나로클럽|농협하나로유통|농협유통/.test(n);
+      if (/이마트24|이마트 에브리데이|이마트에브리데이|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return false;
+      return /^이마트 |이마트$|홈플러스|롯데마트|코스트코코리아|코스트코|메가마트|빅마트|하나로클럽|농협하나로유통|농협유통/.test(n);
     }},
     { label: '슈퍼·마트', filterFn: p => {
       const n = p.name;
-      if (/이마트24|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return true;
-      return !/이마트|홈플러스|롯데마트|코스트코|메가마트|빅마트|하나로클럽|농협하나로유통|농협유통/.test(n);
+      if (/이마트24|이마트 에브리데이|이마트에브리데이|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return true;
+      return !/^이마트 |이마트$|홈플러스|롯데마트|코스트코코리아|코스트코|메가마트|빅마트|하나로클럽|농협하나로유통|농협유통/.test(n);
     }},
   ],
   AD5: [
@@ -1026,10 +1026,10 @@ let activeSubTab = {};
 let currentPlaces = [];
 // 현재 단일 카테고리 코드 (서브탭 표시 여부 판단용)
 let currentSingleCat = null;
-// v4.1.6: 주유소 저가순 정렬 토글
+// v4.1.7: 주유소 저가순 정렬 토글
 let ol7SortByPrice = false;
 
-// v4.1.6: 서브탭 렌더링 (0개 탭 자동 숨김)
+// v4.1.7: 서브탭 렌더링 (0개 탭 자동 숨김)
 function renderSubTabs(catCode, places) {
   const area = document.getElementById('subTabArea');
   const row  = document.getElementById('subTabRow');
@@ -1133,7 +1133,7 @@ function getCoords(name) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.6: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
+// v4.1.7: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
 // ─────────────────────────────────────────
 async function getRoadRoute(startC, endC, waypointCs = []) {
   let url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`;
@@ -1155,7 +1155,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   }
   const route = data.routes[0];
   const coords = [];
-  // v4.1.6: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
+  // v4.1.7: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
   const highwayCoordSet = new Set();
   let inHighway = false;
   for (const section of route.sections) {
@@ -1178,7 +1178,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   return { coords, totalSec, totalDist, highwayCoordSet };
 }
 
-// v4.1.6: 좌표가 고속도로 구간인지 확인
+// v4.1.7: 좌표가 고속도로 구간인지 확인
 function isHighwayPoint(pt, highwayCoordSet) {
   return pt.highway === true || highwayCoordSet?.has(`${pt.lng},${pt.lat}`);
 }
@@ -1259,7 +1259,7 @@ function calcDetourMin(startC, endC, placeC, totalSec, routeCoords, totalDist) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.6: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
+// v4.1.7: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
 // 출발지→[장소N] 1회 + [장소N]→목적지 1회 = 총 2회 호출
 // ─────────────────────────────────────────
 async function calcDetourMinBatch(startC, endC, places, totalSec) {
@@ -1337,7 +1337,7 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.6: 카테고리별 탐색 반경 자동 확장 설정
+// v4.1.7: 카테고리별 탐색 반경 자동 확장 설정
 // autoExpand: true=확장, msg: 확장 시 토스트 멘트 (null이면 멘트 없음)
 // noHighway: true=고속도로 구간 제외
 // rearBias: true=후반 구간 집중 (숙박: 중간~도착지)
@@ -1354,7 +1354,7 @@ const CAT_SEARCH_CONFIG = {
   SW8:  { autoExpand: false, msg: null,                          noHighway: true,  rearBias: false },
 };
 
-// v4.1.6: 실제 도로 경로 기반 장소 검색
+// v4.1.7: 실제 도로 경로 기반 장소 검색
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
   const { coords, totalSec, totalDist, highwayCoordSet } = routeData;
   const maxPoints = Math.min(16, Math.max(6, Math.round(totalDist / 1000 / 10 * 2)));
@@ -1372,7 +1372,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     cumTimeSec.push(cumTimeSec[i-1] + (segDist / totalDist) * totalSec);
   }
 
-  // v4.1.6: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
+  // v4.1.7: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
   const effectiveRadius = (ol7SortByPrice && cats.some(c => c.cat === 'OL7'))
     ? Math.min(20000, baseRadius * 3)
     : baseRadius;
@@ -1508,7 +1508,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     }
   }
 
-  // v4.1.6: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
+  // v4.1.7: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
   // 백그라운드 API 완료 후 fromStartMin(실API) 기준으로 재정렬
   results.forEach(r => { r.detourExact = false; });
   const filtered = results.filter(r => r.detourMin <= maxDetourMin * 1.5);
@@ -1567,7 +1567,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
 }
 
 // ─────────────────────────────────────────
-// v4.1.6: 오피넷 유가 조회
+// v4.1.7: 오피넷 유가 조회
 // ─────────────────────────────────────────
 const OPINET_KEY = 'MyUPdfs6QWQiIMftuDFONfKGxQebYXEYZlmpNj2QTw';
 const DROWSY_KEY = '1HW17T53FO23BH9E';
@@ -1583,7 +1583,7 @@ async function fetchOpinetPrices(lat, lng, radius = 5) {
   } catch(e) { return null; }
 }
 
-// v4.1.6: 졸음쉼터 조회 (경로 2시간 초과 시)
+// v4.1.7: 졸음쉼터 조회 (경로 2시간 초과 시)
 async function fetchDrowsyStations(routeCoords, totalSec) {
   if (totalSec < 7200) return null; // 2시간 미만 → 미표시
   try {
@@ -1892,7 +1892,7 @@ function renderCards(places) {
   });
 }
 
-// v4.1.6: showResults — 서브탭·배너 처리 후 renderCards 호출
+// v4.1.7: showResults — 서브탭·배너 처리 후 renderCards 호출
 function showResults(places) {
   // 졸음쉼터 배너 초기화
   document.getElementById('drowsyBanner').style.display = 'none';
