@@ -101,7 +101,6 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 /* ── MAP ── */
 #map {
   flex:1; min-height:0; position:relative;
-  padding-top:78px;
   background:var(--surface); cursor:pointer;
 }
 #map.fullscreen { position:fixed; inset:0; z-index:100; max-width:100%; cursor:default; }
@@ -583,8 +582,8 @@ input[type=range]::-webkit-slider-thumb {
           <div class="cat-chip" data-cat="PM9" onclick="toggleCat(this)"><span class="icon">💊</span>약국</div>
           <div class="cat-chip" data-cat="OL7" onclick="toggleCat(this)"><span class="icon">⛽</span>주유소</div>
           <div class="cat-chip" data-cat="BK9" onclick="toggleCat(this)"><span class="icon">🏦</span>은행·ATM</div>
-          <div class="cat-chip" data-cat="AT4" onclick="toggleCat(this)"><span class="icon">🏛️</span>명소</div>
           <div class="cat-chip" data-cat="MT1" onclick="toggleCat(this)"><span class="icon">🛒</span>마트</div>
+          <div class="cat-chip" data-cat="AT4" onclick="toggleCat(this)"><span class="icon">🏛️</span>명소</div>
           <div class="cat-chip" data-cat="AD5" onclick="toggleCat(this)"><span class="icon">🏨</span>숙박</div>
           <div class="cat-chip" data-cat="SW8" onclick="toggleCat(this)"><span class="icon">🚉</span>역·터미널</div>
         </div>
@@ -623,7 +622,7 @@ input[type=range]::-webkit-slider-thumb {
     </div>
     <!-- v4.0.0: 약국 야간 배너 (야간·공휴일 조건부 노출) -->
     <div id="pharmacyBanner" style="display:none; padding:10px 14px; background:rgba(251,146,60,0.12); border-bottom:1px solid rgba(251,146,60,0.3);">
-      <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문을 열었는지 꼭 확인하고 가세요 → </span><a href="https://www.pharm114.or.kr" target="_blank" style="font-size:0.78rem; color:#fb923c; text-decoration:underline;">휴일지킴이약국</a>
+      <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문을 열었는지 꼭 확인하고 가세요 → </span><a href="https://www.pharm114.or.kr" target="_blank" rel="noreferrer" style="font-size:0.78rem; color:#fb923c; text-decoration:underline;">휴일지킴이약국 →</a>
     </div>
     <!-- v4.1.6: 졸음쉼터 배너 (경로 2시간 초과 시) -->
     <div id="drowsyBanner" style="display:none; padding:10px 14px; background:rgba(56,189,248,0.10); border-bottom:1px solid rgba(56,189,248,0.25);">
@@ -711,7 +710,7 @@ function savePlaces(arr) { localStorage.setItem(LS_PLACES, JSON.stringify(arr));
 // 토스트
 // ─────────────────────────────────────────
 let toastTimer = null;
-function showToast(msg, duration = 1500) {
+function showToast(msg, duration = 800) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
@@ -734,6 +733,15 @@ function loadKakaoSDK() {
 }
 
 async function initApp() {
+  // 헤더 높이만큼 map 상단 여백 동적 설정 (새로고침 포함)
+  function adjustMapTop() {
+    const h = document.querySelector('.header');
+    const m = document.getElementById('map');
+    if (h && m) m.style.paddingTop = h.offsetHeight + 'px';
+  }
+  adjustMapTop();
+  window.addEventListener('resize', adjustMapTop);
+
   showToast('지도 로딩 중...');
   try {
     await loadKakaoSDK();
@@ -973,12 +981,12 @@ const CAT_SUBTABS = {
     { label: '전체',    filterFn: () => true },
     { label: '대형마트', filterFn: p => {
       const n = p.name;
-      if (/이마트24|이마트 에브리데이|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return false;
+      if (/이마트24|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return false;
       return /이마트|홈플러스|롯데마트|코스트코|메가마트|빅마트|하나로클럽|농협하나로유통|농협유통/.test(n);
     }},
     { label: '슈퍼·마트', filterFn: p => {
       const n = p.name;
-      if (/이마트24|이마트 에브리데이|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return true;
+      if (/이마트24|홈플러스 익스프레스|홈플러스익스프레스|롯데슈퍼|하나로슈퍼|하나로마트/i.test(n)) return true;
       return !/이마트|홈플러스|롯데마트|코스트코|메가마트|빅마트|하나로클럽|농협하나로유통|농협유통/.test(n);
     }},
   ],
@@ -1257,9 +1265,12 @@ function calcDetourMin(startC, endC, placeC, totalSec, routeCoords, totalDist) {
 async function calcDetourMinBatch(startC, endC, places, totalSec) {
   if (!places.length) return;
 
-  // 출발지↔목적지 직선거리 기반 radius 설정 (API 상한 없음, 최소 5km)
-  const totalDistKm = distKm(startC, endC);
-  const apiRadius = Math.max(5000, Math.round(totalDistKm * 1000 * 1.2));
+  // 각 장소~출발지/목적지 중 최대 거리 기반 radius (직선거리 과소평가 방지)
+  const maxPlaceDist = places.reduce((max, p) => {
+    const d = Math.max(distKm(startC, p), distKm(endC, p)) * 1000;
+    return Math.max(max, d);
+  }, 0);
+  const apiRadius = Math.max(5000, Math.round(maxPlaceDist * 1.3));
 
   const BATCH_SIZE = 30;
   const chunks = [];
@@ -1292,25 +1303,25 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
       const toPlace = {};
       const fromPlace = {};
 
-      (d1.routes || []).forEach(r => {
-        if (r.result_code === 0) {
-          const key = r.summary?.destination?.key ?? r.summary?.waypoints?.[0]?.key;
-          if (key != null) toPlace[key] = r.summary.duration;
+      (d1.routes || []).forEach((r, i) => {
+        if (r.result_code === 0 && r.summary?.duration != null) {
+          toPlace[String(i)] = r.summary.duration;
         }
       });
-      (d2.routes || []).forEach(r => {
-        if (r.result_code === 0) {
-          const key = r.summary?.origin?.key;
-          if (key != null) fromPlace[key] = r.summary.duration;
+      (d2.routes || []).forEach((r, i) => {
+        if (r.result_code === 0 && r.summary?.duration != null) {
+          fromPlace[String(i)] = r.summary.duration;
         }
       });
 
       chunk.forEach((p, i) => {
         const sec1 = toPlace[String(i)];
         const sec2 = fromPlace[String(i)];
+        if (sec1 != null) {
+          p.fromStartMin = Math.round(sec1 / 60); // sec1만 있어도 출발지 거리 업데이트
+        }
         if (sec1 != null && sec2 != null) {
           p.detourMin = Math.round(Math.max(0, (sec1 + sec2 - totalSec) / 60));
-          p.fromStartMin = Math.round(sec1 / 60); // v4.1.6: 실API 기반 정확한 출발지 기준 시간
           p.detourExact = true;
         }
         // 매칭 실패 시 추정값 유지 (detourExact = false 명시)
