@@ -100,8 +100,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 
 /* ── MAP ── */
 #map {
-  flex:1; min-height:0; position:relative;
-  padding-top:78px;
+  flex:none; height:287px; position:relative;
   background:var(--surface); cursor:pointer;
 }
 #map.fullscreen { position:fixed; inset:0; z-index:100; max-width:100%; cursor:default; }
@@ -518,7 +517,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.131</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.13</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
