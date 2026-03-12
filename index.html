@@ -101,6 +101,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 /* ── MAP ── */
 #map {
   flex:1; min-height:0; position:relative;
+  padding-top:78px;
   background:var(--surface); cursor:pointer;
 }
 #map.fullscreen { position:fixed; inset:0; z-index:100; max-width:100%; cursor:default; }
@@ -517,7 +518,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.13</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.131</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -593,9 +594,9 @@ input[type=range]::-webkit-slider-thumb {
       <div class="section" style="padding-bottom:4px;">
         <div style="display:flex; align-items:center; gap:10px; padding:4px 0 8px;">
           <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🔍 경로상 탐색범위</span>
-          <input type="range" id="detourSlider" min="1" max="3" step="0.01" value="1.4"
+          <input type="range" id="detourSlider" min="1" max="3" step="0.01" value="1.2"
             oninput="updateDetour(this.value)" style="flex:1;">
-          <strong id="detourVal" style="color:var(--accent);font-family:'Black Han Sans',sans-serif;font-size:0.85rem;white-space:nowrap;min-width:36px;text-align:right;">좁게</strong>
+          <span id="detourVal" style="color:var(--accent);font-size:0.82rem;white-space:nowrap;min-width:36px;text-align:right;">좁게</span>
         </div>
       </div>
     </div>
