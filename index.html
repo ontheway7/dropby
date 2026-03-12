@@ -29,7 +29,7 @@
                        AT4·HP8·MT1·SW8 category_name 디버그 패널 추가
                        공통 정렬: 출발지 기준 시간(fromStartMin) 순
                        역·터미널 탭 순서 변경 및 필터 패턴 보완 (고속·시외 추가)
-  v4.1.21 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
+  v4.1.25 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
                        주유소 카드 유가 배지 표시
                        카테고리 텍스트 흰색(흐리게) + 선택 시 초록 유지
                        분포 개선 2라운드 채우기, 결과 0개 서브탭 자동 숨김
@@ -384,6 +384,9 @@ input[type=range]::-webkit-slider-thumb {
 }
 @keyframes spin { to{transform:rotate(360deg)} }
 .loading-text { color:var(--muted); font-size:0.82rem; }
+.oil-spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(74,222,128,0.2); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; margin-right:6px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+#oilLoadingBar { display:none; align-items:center; padding:6px 16px; font-size:0.78rem; color:var(--muted); background:var(--surface); border-bottom:1px solid var(--border); }
 
 /* v2.1: 토스트 메시지 */
 .toast {
@@ -517,7 +520,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.21</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.1.25</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -621,11 +624,12 @@ input[type=range]::-webkit-slider-thumb {
     <div id="subTabArea" style="display:none; padding:0 14px 0; border-bottom:1px solid var(--border);">
       <div id="subTabRow" class="tabs" style="margin:10px 0 8px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none;"></div>
     </div>
+    <div id="oilLoadingBar"><span class="oil-spinner"></span>유가 정보 조회 중...</div>
     <!-- v4.0.0: 약국 야간 배너 (야간·공휴일 조건부 노출) -->
     <div id="pharmacyBanner" style="display:none; padding:10px 14px; background:rgba(251,146,60,0.12); border-bottom:1px solid rgba(251,146,60,0.3);">
       <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문을 열었는지 꼭 확인하고 가세요.</span>
     </div>
-    <!-- v4.1.21: 졸음쉼터 배너 (경로 2시간 초과 시) -->
+    <!-- v4.1.25: 졸음쉼터 배너 (경로 2시간 초과 시) -->
     <div id="drowsyBanner" style="display:none; padding:10px 14px; background:rgba(56,189,248,0.10); border-bottom:1px solid rgba(56,189,248,0.25);">
       <span id="drowsyBannerText" style="font-size:0.78rem; color:#38bdf8;">💤 경로 상 졸음쉼터를 확인하는 중...</span>
     </div>
@@ -937,7 +941,7 @@ function getActiveCats() {
 }
 
 // ─────────────────────────────────────────
-// v4.1.21: 카테고리 코드별 category_name 정합성 필터
+// v4.1.25: 카테고리 코드별 category_name 정합성 필터
 const CAT_NAME_FILTER = {
   // CE7 베이커리 보완용 FD6 검색 — 베이커리 관련만 통과
   FD6_BAKERY: p => /베이커리|빵|제과|bakery/i.test(p.category_name + p.place_name),
@@ -951,7 +955,7 @@ const CAT_NAME_FILTER = {
 
 
 // ─────────────────────────────────────────
-// v4.1.21: 카테고리별 서브탭 정의
+// v4.1.25: 카테고리별 서브탭 정의
 const CAT_SUBTABS = {
   FD6: [
     { label: '전체',  filterFn: () => true },
@@ -1026,11 +1030,11 @@ let activeSubTab = {};
 let currentPlaces = [];
 // 현재 단일 카테고리 코드 (서브탭 표시 여부 판단용)
 let currentSingleCat = null;
-// v4.1.21: 주유소 저가순 정렬 토글
+// v4.1.25: 주유소 저가순 정렬 토글
 let ol7SortByPrice = true;  // 디폴트 저가순
 let ol7FuelType = 'B027';   // 디폴트 휘발유 (B034=고급휘발유, D047=경유, K015=LPG)
 
-// v4.1.21: 서브탭 렌더링 (0개 탭 자동 숨김)
+// v4.1.25: 서브탭 렌더링 (0개 탭 자동 숨김)
 function renderSubTabs(catCode, places) {
   const area = document.getElementById('subTabArea');
   const row  = document.getElementById('subTabRow');
@@ -1068,7 +1072,7 @@ function renderSubTabs(catCode, places) {
     // 유종 드롭다운
     const sel = document.createElement('select');
     sel.id = 'ol7FuelSel';
-    sel.style.cssText = 'background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:0.82rem;cursor:pointer;flex-shrink:0;';
+    sel.style.cssText = 'background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:0.82rem;cursor:pointer;flex:1;';
     [['B034','고급휘발유'],['B027','휘발유'],['D047','경유'],['K015','LPG']].forEach(([val, label]) => {
       const opt = document.createElement('option');
       opt.value = val; opt.textContent = label;
@@ -1088,7 +1092,7 @@ function renderSubTabs(catCode, places) {
     [['저가순', 0],['거리순', 1]].forEach(([label, idx]) => {
       const btn = document.createElement('button');
       btn.className = 'tab' + (tabIdx === idx ? ' on' : '');
-      btn.style.cssText = 'white-space:nowrap; flex-shrink:0; flex:1;';
+      btn.style.cssText = 'white-space:nowrap; flex:1;';
       btn.textContent = label;
       btn.onclick = () => {
         activeSubTab['OL7'] = idx;
@@ -1179,7 +1183,7 @@ function getCoords(name) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.21: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
+// v4.1.25: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
 // ─────────────────────────────────────────
 async function getRoadRoute(startC, endC, waypointCs = []) {
   let url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`;
@@ -1201,7 +1205,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   }
   const route = data.routes[0];
   const coords = [];
-  // v4.1.21: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
+  // v4.1.25: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
   const highwayCoordSet = new Set();
   let inHighway = false;
   for (const section of route.sections) {
@@ -1224,7 +1228,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   return { coords, totalSec, totalDist, highwayCoordSet };
 }
 
-// v4.1.21: 좌표가 고속도로 구간인지 확인
+// v4.1.25: 좌표가 고속도로 구간인지 확인
 function isHighwayPoint(pt, highwayCoordSet) {
   return pt.highway === true || highwayCoordSet?.has(`${pt.lng},${pt.lat}`);
 }
@@ -1249,7 +1253,7 @@ function sampleRoutePoints(coords, totalDist, maxPoints = 10) {
   const last = coords[coords.length-1];
   if (pts[pts.length-1] !== last) pts.push(last);
 
-  // v4.1.21: 목적지 직전 25km 지점 명시적 추가 (고속도로 경로 목적지 부근 커버)
+  // v4.1.25: 목적지 직전 25km 지점 명시적 추가 (고속도로 경로 목적지 부근 커버)
   // 경로가 50km 이상일 때만 적용 (단거리는 이미 커버됨)
   if (totalDist >= 50000) {
     const targetDist = totalDist - 25000; // 목적지 25km 전
@@ -1335,7 +1339,7 @@ function calcDetourMin(startC, endC, placeC, totalSec, routeCoords, totalDist) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.21: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
+// v4.1.25: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
 // 출발지→[장소N] 1회 + [장소N]→목적지 1회 = 총 2회 호출
 // ─────────────────────────────────────────
 async function calcDetourMinBatch(startC, endC, places, totalSec) {
@@ -1413,7 +1417,7 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
 }
 
 // ─────────────────────────────────────────
-// v4.1.21: 카테고리별 탐색 반경 자동 확장 설정
+// v4.1.25: 카테고리별 탐색 반경 자동 확장 설정
 // autoExpand: true=확장, msg: 확장 시 토스트 멘트 (null이면 멘트 없음)
 // noHighway: true=고속도로 구간 제외
 // rearBias: true=후반 구간 집중 (숙박: 중간~도착지)
@@ -1430,7 +1434,7 @@ const CAT_SEARCH_CONFIG = {
   SW8:  { autoExpand: false, msg: null,                          noHighway: true,  rearBias: false },
 };
 
-// v4.1.21: 실제 도로 경로 기반 장소 검색
+// v4.1.25: 실제 도로 경로 기반 장소 검색
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
   const { coords, totalSec, totalDist, highwayCoordSet } = routeData;
   const maxPoints = Math.min(16, Math.max(6, Math.round(totalDist / 1000 / 10 * 2)));
@@ -1448,7 +1452,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     cumTimeSec.push(cumTimeSec[i-1] + (segDist / totalDist) * totalSec);
   }
 
-  // v4.1.21: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
+  // v4.1.25: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
   const effectiveRadius = (ol7SortByPrice && cats.some(c => c.cat === 'OL7'))
     ? Math.min(20000, baseRadius * 3)
     : baseRadius;
@@ -1584,7 +1588,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     }
   }
 
-  // v4.1.21: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
+  // v4.1.25: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
   // 백그라운드 API 완료 후 fromStartMin(실API) 기준으로 재정렬
   results.forEach(r => { r.detourExact = false; });
   const filtered = results.filter(r => r.detourMin <= maxDetourMin * 1.5);
@@ -1642,9 +1646,20 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
 }
 
 // ─────────────────────────────────────────
-// v4.1.21: 오피넷 유가 조회 (Cloudflare Worker 프록시)
+// v4.1.25: 오피넷 유가 조회 (Cloudflare Worker 프록시)
 // ─────────────────────────────────────────
+
+// 공급사 코드 맵
+const POLL_DIV_MAP = {
+  SKE:'SK', GSC:'GS', SOL:'S-OIL', HDO:'HD', ETC:'자영',
+  RTO:'알뜰', RTX:'알뜰(ex)', NHO:'알뜰(NH)',
+  E1G:'E1', SKG:'SK가스', RTN:'알뜰(NH)'
+};
 const OPINET_PROXY = 'https://dropby-proxy.algoventus.workers.dev';
+function showOilLoading(show) {
+  const bar = document.getElementById('oilLoadingBar');
+  if (bar) bar.style.display = show ? 'flex' : 'none';
+}
 const DROWSY_KEY = '1HW17T53FO23BH9E';
 
 
@@ -1675,7 +1690,7 @@ function applyOpinetMatching(ol7Places, allOilData) {
   };
   const oilList = allOilData
     .filter(s => s.PRICE && s.GIS_X_COOR && s.GIS_Y_COOR)
-    .map(s => ({ price: Number(s.PRICE), tmX: parseFloat(s.GIS_X_COOR), tmY: parseFloat(s.GIS_Y_COOR) }));
+    .map(s => ({ price: Number(s.PRICE), tmX: parseFloat(s.GIS_X_COOR), tmY: parseFloat(s.GIS_Y_COOR), pollDiv: s.POLL_DIV_CD||'' }));
   ol7Places.forEach(p => {
     const isLpgStation = /LPG|충전소/.test(p.catName);
     if (ol7FuelType === 'K015' && !isLpgStation) return;
@@ -1686,7 +1701,7 @@ function applyOpinetMatching(ol7Places, allOilData) {
       .map(o => ({ o, dist: Math.sqrt((tmX-o.tmX)**2+(tmY-o.tmY)**2) }))
       .filter(x => x.dist < 200)
       .sort((a,b) => a.dist-b.dist);
-    if (nearby[0]) { p._oilPrice = nearby[0].o.price; p._oilType = 'regular'; }
+    if (nearby[0]) { p._oilPrice = nearby[0].o.price; p._oilType = 'regular'; p._pollDiv = nearby[0].o.pollDiv; }
   });
 }
 
@@ -1696,7 +1711,8 @@ async function reloadOpinetPrices(places) {
   if (ol7Places.length === 0) return;
   // 기존 가격 초기화
   ol7Places.forEach(p => { delete p._oilPrice; delete p._oilType; });
-  document.getElementById('loadingText') && (document.getElementById('loadingText').textContent = '유가 정보 조회 중...');
+  showOilLoading(true);
+  await new Promise(r => setTimeout(r, 30)); // DOM 업데이트 대기
   const allOilData = [];
   const usedPoints = [];
   const callPoints = [];
@@ -1714,6 +1730,7 @@ async function reloadOpinetPrices(places) {
     if (Array.isArray(data)) allOilData.push(...data);
   }
   applyOpinetMatching(ol7Places, allOilData);
+  showOilLoading(false);
 }
 async function fetchOpinetPrices(lat, lng, radius = 5, prodcd = 'B027') {
   try {
@@ -1726,7 +1743,7 @@ async function fetchOpinetPrices(lat, lng, radius = 5, prodcd = 'B027') {
   } catch(e) { return null; }
 }
 
-// v4.1.21: 졸음쉼터 조회 (경로 2시간 초과 시)
+// v4.1.25: 졸음쉼터 조회 (경로 2시간 초과 시)
 async function fetchDrowsyStations(routeCoords, totalSec) {
   if (totalSec < 7200) return null; // 2시간 미만 → 미표시
   try {
@@ -1828,8 +1845,6 @@ async function doSearch() {
 
     // 주유소 선택 시 오피넷 유가 연동 (유종 태깅 + 저가순 정렬)
     if (cats.some(c => c.cat === 'OL7')) {
-      document.getElementById('loadingText').textContent = '유가 정보 조회 중...';
-
       const ol7Places = places.filter(p => p.catCode === 'OL7');
 
       if (ol7Places.length > 0) {
@@ -1917,7 +1932,7 @@ function drawRoute(startC, endC, places, routeData) {
   mkLabel(sLL, `<div style="background:#4ade80;color:#0a0f0d;padding:4px 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.4)">출발</div>`);
   mkLabel(eLL, `<div style="background:#fb923c;color:#fff;padding:4px 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:sans-serif;box-shadow:0 2px 8px rgba(0,0,0,0.4)">도착</div>`);
 
-  // v4.1.21: 경로 3구간 균등 분포 마커 (출발 5 / 중간 3 / 목적지 4 = 최대 12개)
+  // v4.1.25: 경로 3구간 균등 분포 마커 (출발 5 / 중간 3 / 목적지 4 = 최대 12개)
   const pLen = places.length;
   const cutA = Math.ceil(pLen * 0.4);
   const cutB = Math.ceil(pLen * 0.7);
@@ -1981,7 +1996,8 @@ function renderCards(places) {
       </div>
       <div class="rc-badges">
         <span class="badge badge-detour" id="fromstart-${p.id}">🕐 출발지에서 ${p.fromStartMin}분</span>
-        ${p._oilPrice ? `<span class="badge" style="margin-left:6px;background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);">⛽ ${p._oilPrice.toLocaleString()}원/L</span>` : ''}
+        ${p._pollDiv ? `<span class="badge" style="background:rgba(255,255,255,0.07);color:var(--muted);border:1px solid var(--border);">${POLL_DIV_MAP[p._pollDiv]||p._pollDiv}</span>` : ''}
+        ${p._oilPrice ? `<span class="badge" style="background:rgba(234,179,8,0.15);color:#eab308;border:1px solid rgba(234,179,8,0.3);">⛽ ${p._oilPrice.toLocaleString()}원/L</span>` : ''}
       </div>
       <div class="rc-addr">📌 ${p.addr}</div>
       ${p.phone ? `<div class="rc-phone">📞 ${p.phone}</div>` : ''}
@@ -1994,7 +2010,7 @@ function renderCards(places) {
   });
 }
 
-// v4.1.21: showResults — 서브탭·배너 처리 후 renderCards 호출
+// v4.1.25: showResults — 서브탭·배너 처리 후 renderCards 호출
 function showResults(places) {
   // 졸음쉼터 배너 초기화
   document.getElementById('drowsyBanner').style.display = 'none';
