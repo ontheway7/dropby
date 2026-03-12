@@ -218,7 +218,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 
 /* autocomplete */
 .ac-list {
-  position:absolute; left:-14px; right:-56px; top:calc(100% + 6px);
+  position:absolute; left:-14px; right:-35px; top:calc(100% + 6px);
   background:var(--card); border:1px solid var(--accent3);
   border-radius:12px; overflow:hidden; z-index:999;
   box-shadow:0 12px 32px rgba(0,0,0,0.7); display:none;
@@ -242,7 +242,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 
 /* 내 장소 픽커 */
 .fav-picker {
-  position:absolute; left:-14px; right:-56px; top:calc(100% + 6px);
+  position:absolute; left:-14px; right:-35px; top:calc(100% + 6px);
   background:var(--card); border:1px solid var(--accent);
   border-radius:12px; overflow:hidden; z-index:1000;
   box-shadow:0 12px 32px rgba(0,0,0,0.7); display:none;
@@ -848,7 +848,7 @@ function triggerAC(input, acEl, key) {
   clearTimeout(acTimers[key]);
   const val = input.value.trim();
   if (val.length < 1) { acEl.style.display = 'none'; return; }
-  acTimers[key] = setTimeout(() => searchAC(val, acEl, input), 150);
+  acTimers[key] = setTimeout(() => searchAC(val, acEl, input), 100);
 }
 
 function searchAC(query, acEl, input) {
