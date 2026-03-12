@@ -771,6 +771,8 @@ async function initApp() {
     }
     setupInputs();
     setupBackGuard();
+    // 디폴트 카테고리 설정 (원하는 data-cat 값으로 변경, 없애려면 아래 document 코드 삭제)
+    document.querySelector('.cat-chip[data-cat="FD6"]')?.click();
   } catch(e) {
     showToast('⚠️ 지도 로드 실패');
   }
