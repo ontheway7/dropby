@@ -27,9 +27,9 @@
   v4.0.3 - 2026.03.10  베이커리 별도 검색(FD6) 후 CE7 결과와 합산
                        대형마트 분류 기준 개선 (이마트24·홈플러스익스프레스 등 제외)
                        AT4·HP8·MT1·SW8 category_name 디버그 패널 추가
-                       공통 정렬: 출발지 기준 시간(fromStartMin) 순
+                       공통 정렬: 출발지 기준 시간(fromStartMin) 순09
                        역·터미널 탭 순서 변경 및 필터 패턴 보완 (고속·시외 추가)
-  v4.2.5 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
+  v4.2.10 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
                        주유소 카드 유가 배지 표시
                        카테고리 텍스트 흰색(흐리게) + 선택 시 초록 유지
                        분포 개선 2라운드 채우기, 결과 0개 서브탭 자동 숨김
@@ -103,7 +103,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
   flex:none; height:319px; position:relative;
   background:var(--surface); cursor:pointer;
 }
-#map.fullscreen { position:fixed; inset:0; z-index:100; max-width:100%; cursor:default; }
+#map.fullscreen { position:fixed; inset:0; z-index:100; max-width:100%; width:100% !important; height:100% !important; cursor:default; }
 .btn-map-close {
   position:absolute; top:12px; right:12px; z-index:101;
   background:rgba(10,15,13,0.88); border:1px solid var(--border);
@@ -520,7 +520,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.5</span></span>
+      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.10</span></span>
     </div>
     <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
   </div>
@@ -629,7 +629,7 @@ input[type=range]::-webkit-slider-thumb {
     <div id="pharmacyBanner" style="display:none; padding:10px 14px; background:rgba(251,146,60,0.12); border-bottom:1px solid rgba(251,146,60,0.3);">
       <span style="font-size:0.78rem; color:#fb923c;">⚠️ 지금 문을 열었는지 꼭 확인하고 가세요.</span>
     </div>
-    <!-- v4.2.5: 졸음쉼터 배너 (경로 2시간 초과 시) -->
+    <!-- v4.2.10: 졸음쉼터 배너 (경로 2시간 초과 시) -->
     <div id="drowsyBanner" style="display:none; padding:10px 14px; background:rgba(56,189,248,0.10); border-bottom:1px solid rgba(56,189,248,0.25);">
       <span id="drowsyBannerText" style="font-size:0.78rem; color:#38bdf8;">💤 경로 상 졸음쉼터를 확인하는 중...</span>
     </div>
@@ -756,6 +756,11 @@ async function initApp() {
     ps = new kakao.maps.services.Places();
     geocoder = new kakao.maps.services.Geocoder();
     kakao.maps.event.addListener(kakaoMap, 'click', openMapFullscreen);
+    // map div 직접 클릭도 전체화면 (마커가 이벤트 막는 경우 대비)
+    document.getElementById('map').addEventListener('click', function(e) {
+      if (e.target.closest('.btn-map-close')) return;
+      if (e.target.tagName === 'CANVAS') openMapFullscreen(); // 카카오 지도 캔버스 직접 클릭
+    });
     if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_KEY);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(pos => {
@@ -820,7 +825,12 @@ function goToCard(placeId) {
   document.getElementById('sheet').classList.add('open');
   setTimeout(() => {
     const card = document.getElementById('card-' + placeId);
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (card) {
+      const scrollEl = document.getElementById('sheet');
+      const cardTop = card.offsetTop;
+      const offset = card.offsetHeight * 0.6;
+      scrollEl.scrollTo({ top: cardTop - offset, behavior: 'smooth' });
+    }
   }, 350);
 }
 
@@ -957,7 +967,7 @@ function getActiveCats() {
 }
 
 // ─────────────────────────────────────────
-// v4.2.5: 카테고리 코드별 category_name 정합성 필터
+// v4.2.10: 카테고리 코드별 category_name 정합성 필터
 const CAT_NAME_FILTER = {
   // CE7 베이커리 보완용 FD6 검색 — 베이커리 관련만 통과
   FD6_BAKERY: p => /베이커리|빵|제과|bakery/i.test(p.category_name + p.place_name),
@@ -971,7 +981,7 @@ const CAT_NAME_FILTER = {
 
 
 // ─────────────────────────────────────────
-// v4.2.5: 카테고리별 서브탭 정의
+// v4.2.10: 카테고리별 서브탭 정의
 const CAT_SUBTABS = {
   FD6: [
     { label: '전체',  filterFn: () => true },
@@ -1046,11 +1056,11 @@ let activeSubTab = {};
 let currentPlaces = [];
 // 현재 단일 카테고리 코드 (서브탭 표시 여부 판단용)
 let currentSingleCat = null;
-// v4.2.5: 주유소 저가순 정렬 토글
+// v4.2.10: 주유소 저가순 정렬 토글
 let ol7SortByPrice = true;  // 디폴트 저가순
 let ol7FuelType = 'B027';   // 디폴트 휘발유 (B034=고급휘발유, D047=경유, K015=LPG)
 
-// v4.2.5: 서브탭 렌더링 (0개 탭 자동 숨김)
+// v4.2.10: 서브탭 렌더링 (0개 탭 자동 숨김)
 function renderSubTabs(catCode, places) {
   const area = document.getElementById('subTabArea');
   const row  = document.getElementById('subTabRow');
@@ -1199,7 +1209,7 @@ function getCoords(name) {
 }
 
 // ─────────────────────────────────────────
-// v4.2.5: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
+// v4.2.10: 카카오모빌리티 다중목적지 경로 취득 (waypoints 지원)
 // ─────────────────────────────────────────
 async function getRoadRoute(startC, endC, waypointCs = []) {
   let url = `https://apis-navi.kakaomobility.com/v1/directions?origin=${startC.lng},${startC.lat}&destination=${endC.lng},${endC.lat}&priority=RECOMMEND`;
@@ -1221,7 +1231,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   }
   const route = data.routes[0];
   const coords = [];
-  // v4.2.5: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
+  // v4.2.10: 고속도로 구간 좌표 마킹 (guides type 10~12=진입, 7~9=출구, 84=톨게이트)
   const highwayCoordSet = new Set();
   let inHighway = false;
   for (const section of route.sections) {
@@ -1244,7 +1254,7 @@ async function getRoadRoute(startC, endC, waypointCs = []) {
   return { coords, totalSec, totalDist, highwayCoordSet };
 }
 
-// v4.2.5: 좌표가 고속도로 구간인지 확인
+// v4.2.10: 좌표가 고속도로 구간인지 확인
 function isHighwayPoint(pt, highwayCoordSet) {
   return pt.highway === true || highwayCoordSet?.has(`${pt.lng},${pt.lat}`);
 }
@@ -1269,7 +1279,7 @@ function sampleRoutePoints(coords, totalDist, maxPoints = 10) {
   const last = coords[coords.length-1];
   if (pts[pts.length-1] !== last) pts.push(last);
 
-  // v4.2.5: 목적지 직전 25km 지점 명시적 추가 (고속도로 경로 목적지 부근 커버)
+  // v4.2.10: 목적지 직전 25km 지점 명시적 추가 (고속도로 경로 목적지 부근 커버)
   // 경로가 50km 이상일 때만 적용 (단거리는 이미 커버됨)
   if (totalDist >= 50000) {
     const targetDist = totalDist - 25000; // 목적지 25km 전
@@ -1355,7 +1365,7 @@ function calcDetourMin(startC, endC, placeC, totalSec, routeCoords, totalDist) {
 }
 
 // ─────────────────────────────────────────
-// v4.2.5: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
+// v4.2.10: 다중목적지/다중출발지 API로 전체 장소 이탈시간 일괄 계산
 // 출발지→[장소N] 1회 + [장소N]→목적지 1회 = 총 2회 호출
 // ─────────────────────────────────────────
 async function calcDetourMinBatch(startC, endC, places, totalSec) {
@@ -1433,7 +1443,7 @@ async function calcDetourMinBatch(startC, endC, places, totalSec) {
 }
 
 // ─────────────────────────────────────────
-// v4.2.5: 카테고리별 탐색 반경 자동 확장 설정
+// v4.2.10: 카테고리별 탐색 반경 자동 확장 설정
 // autoExpand: true=확장, msg: 확장 시 토스트 멘트 (null이면 멘트 없음)
 // noHighway: true=고속도로 구간 제외
 // rearBias: true=후반 구간 집중 (숙박: 중간~도착지)
@@ -1450,7 +1460,7 @@ const CAT_SEARCH_CONFIG = {
   SW8:  { autoExpand: false, msg: null,                          noHighway: true,  rearBias: false },
 };
 
-// v4.2.5: 실제 도로 경로 기반 장소 검색
+// v4.2.10: 실제 도로 경로 기반 장소 검색
 async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeData) {
   const { coords, totalSec, totalDist, highwayCoordSet } = routeData;
   const maxPoints = Math.min(16, Math.max(6, Math.round(totalDist / 1000 / 10 * 2)));
@@ -1468,7 +1478,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     cumTimeSec.push(cumTimeSec[i-1] + (segDist / totalDist) * totalSec);
   }
 
-  // v4.2.5: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
+  // v4.2.10: 저가순 토글 ON 시 슬라이더 무시하고 넓게 탐색 (기획서 3-12)
   const effectiveRadius = (ol7SortByPrice && cats.some(c => c.cat === 'OL7'))
     ? Math.min(20000, baseRadius * 3)
     : baseRadius;
@@ -1604,7 +1614,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     }
   }
 
-  // v4.2.5: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
+  // v4.2.10: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
   // 백그라운드 API 완료 후 fromStartMin(실API) 기준으로 재정렬
   results.forEach(r => { r.detourExact = false; });
   const filtered = results.filter(r => r.detourMin <= maxDetourMin * 1.5);
@@ -1662,7 +1672,7 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
 }
 
 // ─────────────────────────────────────────
-// v4.2.5: 오피넷 유가 조회 (Cloudflare Worker 프록시)
+// v4.2.10: 오피넷 유가 조회 (Cloudflare Worker 프록시)
 // ─────────────────────────────────────────
 
 // 공급사 코드 맵
@@ -1759,7 +1769,7 @@ async function fetchOpinetPrices(lat, lng, radius = 5, prodcd = 'B027') {
   } catch(e) { return null; }
 }
 
-// v4.2.5: 졸음쉼터 조회 (경로 2시간 초과 시)
+// v4.2.10: 졸음쉼터 조회 (경로 2시간 초과 시)
 async function fetchDrowsyStations(routeCoords, totalSec) {
   if (totalSec < 7200) return null; // 2시간 미만 → 미표시
   try {
@@ -1997,6 +2007,7 @@ function renderCards(places) {
     const origIdx = searchResult.places.indexOf(p);
     const card = document.createElement('div');
     card.className = 'result-card';
+    card.id = 'card-' + p.id;
     card.dataset.id = p.id;
     card.style.animationDelay = (i * 0.05) + 's';
     card.style.cursor = 'pointer';
@@ -2024,7 +2035,7 @@ function renderCards(places) {
   });
 }
 
-// v4.2.5: showResults — 서브탭·배너 처리 후 renderCards 호출
+// v4.2.10: showResults — 서브탭·배너 처리 후 renderCards 호출
 function showResults(places) {
   // 졸음쉼터 배너 초기화
   document.getElementById('drowsyBanner').style.display = 'none';
