@@ -29,7 +29,7 @@
                        AT4·HP8·MT1·SW8 category_name 디버그 패널 추가
                        공통 정렬: 출발지 기준 시간(fromStartMin) 순
                        역·터미널 탭 순서 변경 및 필터 패턴 보완 (고속·시외 추가)
-  v4.2.17 - 2026.03.11  주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
+  v4.2.17 - 2026.03.11 주유소 저가순 오피넷 매칭 수정 (상호명 기반, 좌표별 조회)
                        주유소 카드 유가 배지 표시
                        카테고리 텍스트 흰색(흐리게) + 선택 시 초록 유지
                        분포 개선 2라운드 채우기, 결과 0개 서브탭 자동 숨김
@@ -42,6 +42,8 @@
                        명소 AT4+CT1 병행 검색 + 서브탭 4분류 (자연/역사·유산/문화·전시/랜드마크)
                        역·터미널 SW8 + 기차역 키워드 + 버스터미널 키워드 3개 병행 검색
                        카테고리 순서 조정
+  v4.2.18 - 2026.03.14 내 장소 팝업 닫히기 쉽게 만듦.
+
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -905,6 +907,8 @@ function swapRoute() {
 function setupInputs() {
   setupAC('fi-start', 'ac-start');
   setupAC('fi-end', 'ac-end');
+  document.getElementById('fi-start').addEventListener('focus', closeAllPickers);
+  document.getElementById('fi-end').addEventListener('focus', closeAllPickers);
 }
 
 function setupAC(inputId, acId) {
