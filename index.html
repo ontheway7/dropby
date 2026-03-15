@@ -1903,7 +1903,7 @@ async function doSearch() {
         return;
       }
       if (routeErr.message === 'KAKAO_QUOTA') {
-        alert('오늘 이용 한도를 초과했어요. 내일 다시 이용해주세요');
+        alert('이번 달 이용 한도를 초과했어요.');
         return;
       }
       console.warn('도로 경로 API 실패, 직선 폴백:', routeErr.message);
@@ -1924,7 +1924,7 @@ async function doSearch() {
       places = await searchPlacesAlongRoute(startC, endC, cats, maxDetour, routeData);
     } catch(searchErr) {
       if (searchErr.message === 'KAKAO_QUOTA') {
-        alert('오늘 이용 한도를 초과했어요. 내일 다시 이용해주세요');
+        alert('이번 달 이용 한도를 초과했어요.');
         return;
       }
       throw searchErr;
