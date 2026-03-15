@@ -1811,7 +1811,7 @@ async function reloadOpinetPrices(places) {
   }
   for (const pt of callPoints.slice(0,12)) {
     const data = await fetchOpinetPrices(pt.lat, pt.lng, 5, ol7FuelType);
-    if (data?._error === 'OPINET_QUOTA') { showToast('⚠️ 오늘 유가 정보 이용 한도를 초과했어요.'); break; }
+    if (data?._error === 'OPINET_QUOTA') { showToast('⚠️ 오늘 유가 정보 이용 한도를 초과했어요. 내일 다시 이용해주세요.'); break; }
     if (Array.isArray(data)) allOilData.push(...data);
   }
   applyOpinetMatching(ol7Places, allOilData);
@@ -1957,7 +1957,7 @@ async function doSearch() {
         for (const pt of callPoints.slice(0, 12)) {
           const data = await fetchOpinetPrices(pt.lat, pt.lng, 5, ol7FuelType);
           if (data?._error === 'OPINET_QUOTA') {
-            showToast('⚠️ 오늘 유가 정보 이용 한도를 초과했어요. 내일 다시 이용해주세요');
+            showToast('⚠️ 오늘 유가 정보 이용 한도를 초과했어요. 내일 다시 이용해주세요.');
             break;
           }
           if (Array.isArray(data)) allOilData.push(...data);
