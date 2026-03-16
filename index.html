@@ -43,6 +43,12 @@
                        역·터미널 SW8 + 기차역 키워드 + 버스터미널 키워드 3개 병행 검색
                        카테고리 순서 조정
   v4.2.18 - 2026.03.14 내 장소 팝업 닫히기 쉽게 만듦.
+  v4.2.19 - 2026.03.16 경로저장 기능 추가 (루트마스터 방식)
+                       - 헤더 "내 경로" 버튼 추가
+                       - 찾기 버튼 옆 "경로저장" 버튼 추가
+                       - 경로 이름 입력 후 저장 → localStorage(dropby_routes_v1)
+                       - 내 경로 모달: 목록 조회, 터치 시 출발지·목적지 불러오기, 삭제
+                       - 헤더 로고에서 "DROPBY" 텍스트 제거
 
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
@@ -148,9 +154,33 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 .handle { display:flex; justify-content:center; padding:8px; }
 .handle-bar { width:32px; height:3px; background:var(--border); border-radius:2px; }
 
+/* v4.2.19: 경로저장 이름 입력바 */
+.route-name-bar { margin:0 0 8px; display:none; gap:8px; }
+.route-name-bar.show { display:flex; }
+.route-name-input { flex:1; background:var(--card); border:1px solid var(--accent); border-radius:8px; padding:9px 12px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:0.85rem; outline:none; }
+.route-name-input::placeholder { color:var(--muted); }
+.btn-route-confirm { padding:9px 14px; background:var(--accent); border:none; border-radius:8px; color:#0a0f0d; font-family:'Black Han Sans',sans-serif; font-size:0.82rem; cursor:pointer; white-space:nowrap; }
+
+/* v4.2.19: 찾기+경로저장 버튼 row (루트마스터 동일 구조) */
+.cta-row { display:flex; gap:8px; }
+.cta-row .btn-search { flex:1; width:auto; }
+.btn-save-route { padding:13px 12px; background:var(--card); border:1px solid var(--accent); border-radius:12px; color:var(--accent); font-family:'Noto Sans KR',sans-serif; font-size:0.78rem; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.btn-save-route:hover { background:rgba(74,222,128,0.1); }
+
+/* v4.2.19: 내 경로 모달 아이템 */
+.route-item { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:8px; cursor:pointer; transition:all 0.15s; }
+.route-item:hover { border-color:var(--accent); }
+.route-item-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.route-item-name { font-weight:500; font-size:0.88rem; }
+.route-item-meta { font-size:0.7rem; color:var(--muted); }
+.route-stops { display:flex; flex-wrap:wrap; gap:4px; }
+.route-stop-tag { padding:3px 8px; background:var(--surface); border:1px solid var(--border); border-radius:12px; font-size:0.7rem; color:var(--muted); }
+.route-stop-tag.s { border-color:var(--accent); color:var(--accent); }
+.route-stop-tag.e { border-color:#fb923c; color:#fb923c; }
+
 /* v2.1: 찾기 버튼 고정 영역 */
 .cta-fixed {
-  padding:10px 16px 16px;
+  padding:6px 16px 14px;
   border-top:1px solid var(--border);
   background:var(--bg);
   flex-shrink:0;
@@ -524,9 +554,12 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub">DROPBY <span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.18</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.19</span></span>
     </div>
-    <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
+    <div style="display:flex;gap:6px;">
+      <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
+      <button class="btn-header" onclick="openRoutesModal()">📁 내 경로</button>
+    </div>
   </div>
 
   <!-- ── MAP ── -->
@@ -607,11 +640,18 @@ input[type=range]::-webkit-slider-thumb {
       </div>
     </div>
 
-    <!-- v2.1: 고정 찾기 버튼 -->
+    <!-- v2.1: 고정 찾기 버튼 + v4.2.19: 경로저장 -->
     <div class="cta-fixed">
-      <button class="btn-search" id="btnSearch" onclick="doSearch()">
-        <span>🔍</span><span>가는 길에 찾기</span>
-      </button>
+      <div class="route-name-bar" id="routeNameBar">
+        <input class="route-name-input" id="routeNameInput" placeholder="경로 이름 (예: 주말 원주행)" maxlength="20">
+        <button class="btn-route-confirm" onclick="confirmSaveRoute()">저장</button>
+      </div>
+      <div class="cta-row">
+        <button class="btn-search" id="btnSearch" onclick="doSearch()">
+          <span>🔍</span><span>가는 길에 찾기</span>
+        </button>
+        <button class="btn-save-route" onclick="toggleRouteSave()">📁 경로저장</button>
+      </div>
     </div>
   </div>
 
@@ -675,6 +715,17 @@ input[type=range]::-webkit-slider-thumb {
   </div>
 </div>
 
+<!-- v4.2.19: 내 경로 모달 -->
+<div class="modal-overlay" id="routesModalOverlay" onclick="handleRoutesOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">📁 내 경로</div>
+      <button class="btn-close" onclick="closeRoutesModal()">✕</button>
+    </div>
+    <div class="modal-body" id="routesModalBody"></div>
+  </div>
+</div>
+
 <script>
 // ─────────────────────────────────────────
 // 설정
@@ -682,6 +733,7 @@ input[type=range]::-webkit-slider-thumb {
 const KAKAO_KEY = '4d1307b368487f762cb7e2681ede2435';
 const KAKAO_REST_KEY = 'b3d949996b321a676a0480e24b264a52';
 const LS_PLACES = 'dropby_places_v1';
+const LS_ROUTES = 'dropby_routes_v1'; // v4.2.19
 const ICONS = ['🏠','🌳','🍜','☕','⛽','🏪','🏥','🏋️','📍','🎯','🏖️','🏔️','🛒','🎠','🏢','🏫','💼','📖'];
 
 let kakaoReady = false;
@@ -2233,6 +2285,83 @@ window.addEventListener('orientationchange', () => {
 function openPlacesModal() { renderPlacesModal(); document.getElementById('modalOverlay').classList.add('show'); }
 function closePlacesModal() { document.getElementById('modalOverlay').classList.remove('show'); }
 function handleOverlayClick(e) { if (e.target === document.getElementById('modalOverlay')) closePlacesModal(); }
+
+// ─────────────────────────────────────────
+// v4.2.19: 경로저장 / 내 경로
+// ─────────────────────────────────────────
+function loadRoutes() { try { return JSON.parse(localStorage.getItem(LS_ROUTES)) || []; } catch { return []; } }
+function saveRoutes(a) { localStorage.setItem(LS_ROUTES, JSON.stringify(a)); }
+
+function toggleRouteSave() {
+  const bar = document.getElementById('routeNameBar');
+  const show = bar.classList.toggle('show');
+  if (show) document.getElementById('routeNameInput').focus();
+}
+
+function confirmSaveRoute() {
+  const name = document.getElementById('routeNameInput').value.trim();
+  if (!name) { showToast('경로 이름을 입력해주세요', 1500); return; }
+  const startEl = document.getElementById('fi-start');
+  const endEl = document.getElementById('fi-end');
+  const startName = startEl.value.trim();
+  const endName = endEl.value.trim();
+  if (!startName) { showToast('출발지를 입력해주세요', 1500); return; }
+  const routes = loadRoutes();
+  routes.unshift({
+    id: Date.now(),
+    name,
+    start: startName,
+    end: endName,
+    startCoords: coords[startName] || null,
+    endCoords: coords[endName] || null,
+    createdAt: new Date().toLocaleDateString('ko-KR')
+  });
+  saveRoutes(routes);
+  document.getElementById('routeNameBar').classList.remove('show');
+  document.getElementById('routeNameInput').value = '';
+  showToast('✅ 경로 저장 완료!', 2000);
+}
+
+function openRoutesModal() { renderRoutesModal(); document.getElementById('routesModalOverlay').classList.add('show'); }
+function closeRoutesModal() { document.getElementById('routesModalOverlay').classList.remove('show'); }
+function handleRoutesOverlayClick(e) { if (e.target === document.getElementById('routesModalOverlay')) closeRoutesModal(); }
+
+function renderRoutesModal() {
+  const routes = loadRoutes();
+  document.getElementById('routesModalBody').innerHTML = routes.length === 0
+    ? `<div class="place-empty"><div class="place-empty-icon">📁</div>저장된 경로가 없어요<br>경로 설정 후 "경로저장" 버튼을 눌러보세요</div>`
+    : routes.map((r, i) => `
+      <div class="route-item" onclick="loadRoute(${i})">
+        <div class="route-item-head">
+          <div class="route-item-name">📍 ${r.name}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="route-item-meta">${r.createdAt}</span>
+            <button class="btn-place-del" onclick="deleteRoute(event,${i})">🗑️</button>
+          </div>
+        </div>
+        <div class="route-stops">
+          <span class="route-stop-tag s">출 ${r.start}</span>
+          ${r.end ? `<span class="route-stop-tag e">착 ${r.end}</span>` : ''}
+        </div>
+      </div>`).join('');
+}
+
+function loadRoute(idx) {
+  const r = loadRoutes()[idx];
+  document.getElementById('fi-start').value = r.start;
+  document.getElementById('fi-end').value = r.end || '';
+  if (r.startCoords) coords[r.start] = r.startCoords;
+  if (r.endCoords) coords[r.end] = r.endCoords;
+  closeRoutesModal();
+  showToast(`✅ "${r.name}" 불러오기 완료`, 2000);
+}
+
+function deleteRoute(e, idx) {
+  e.stopPropagation();
+  const routes = loadRoutes();
+  if (!confirm(`"${routes[idx].name}" 경로를 삭제할까요?`)) return;
+  routes.splice(idx, 1); saveRoutes(routes); renderRoutesModal();
+}
 
 function renderPlacesModal() {
   const places = loadPlaces();
