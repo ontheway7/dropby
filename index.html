@@ -169,7 +169,7 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 /* v4.2.19: 찾기+경로저장 버튼 row (루트마스터 동일 구조) */
 .cta-row { display:flex; gap:8px; }
 .cta-row .btn-search { flex:1; width:auto; }
-.btn-save-route { padding:13px 12px; background:var(--card); border:1px solid var(--border); border-radius:12px; color:var(--muted); font-family:'Noto Sans KR',sans-serif; font-size:0.78rem; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.btn-save-route { padding:13px 12px; background:var(--card); border:1px solid var(--accent3); border-radius:12px; color:var(--text); font-family:'Noto Sans KR',sans-serif; font-size:0.78rem; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
 .btn-save-route:hover { border-color:var(--accent); color:var(--accent); }
 
 /* v4.2.19: 내 경로 모달 아이템 */
@@ -403,8 +403,8 @@ input[type=range]::-webkit-slider-thumb {
 }
 .btn-navi { background:#3A1D94; border:none; color:#fff; font-weight:500; }
 .btn-navi:hover { background:#4c28c4; }
-.btn-kakaomap { background:var(--surface); border:1px solid var(--border); color:var(--muted); font-weight:500; }
-.btn-kakaomap:hover { border-color:#FFCD00; color:#FFCD00; }
+.btn-kakaomap { background:var(--card); border:1px solid var(--accent3); color:var(--text); font-weight:500; }
+.btn-kakaomap:hover { border-color:var(--accent); color:var(--accent); }
 
 .empty-result {
   text-align:center; padding:40px 20px; color:var(--muted); font-size:0.82rem; line-height:2;
@@ -2223,7 +2223,7 @@ function goToMap(idx) {
   setTimeout(() => {
     const center = new kakao.maps.LatLng(place.lat, place.lng);
     kakaoMap.setCenter(center);
-    kakaoMap.setLevel(2); // 약 100m 스케일
+    kakaoMap.setLevel(1); // 약 30m 스케일
   }, 320);
 }
 
