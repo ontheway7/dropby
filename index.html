@@ -567,7 +567,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1a</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1b</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -2345,6 +2345,7 @@ function closeSheet() {
 }
 
 function openMapFullscreen(callback) {
+  if (_closeRelayoutTimer) { clearTimeout(_closeRelayoutTimer); _closeRelayoutTimer = null; }
   const mapEl = document.getElementById('map');
   if (mapEl.classList.contains('fullscreen')) {
     if (callback) callback();
@@ -2356,9 +2357,10 @@ function openMapFullscreen(callback) {
     if (callback) callback();
   }, 350);
 }
+let _closeRelayoutTimer = null;
 function closeMapFullscreen() {
   document.getElementById('map').classList.remove('fullscreen');
-  setTimeout(() => kakaoMap.relayout(), 300);
+  _closeRelayoutTimer = setTimeout(() => kakaoMap.relayout(), 300);
 }
 
 function setupBackGuard() {
