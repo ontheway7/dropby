@@ -329,9 +329,11 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 .slider-label strong { color:var(--accent); font-family:'Black Han Sans',sans-serif; }
 input[type=range] {
   -webkit-appearance:none; width:100%; height:3px; border-radius:3px;
-  background:linear-gradient(to right, var(--accent) 66%, var(--border) 66%);
+  background:linear-gradient(to right, var(--accent) 44%, var(--border) 44%);
   outline:none; cursor:pointer;
 }
+.slider-wrap { flex:1; display:flex; align-items:center; }
+.slider-left-bar { display:none; }
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance:none; width:10px; height:10px;
   border-radius:50%; background:var(--accent);
@@ -565,7 +567,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.0</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -645,9 +647,9 @@ input[type=range]::-webkit-slider-thumb {
         <div style="display:flex; align-items:center; gap:10px; padding:4px 0 8px;">
           <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🔍 탐색범위</span>
           <span style="font-size:0.75rem; color:var(--accent); white-space:nowrap;">출발지</span>
-          <input type="range" id="detourSlider" min="1" max="3" step="1" value="2"
+          <input type="range" id="detourSlider" min="0" max="100" step="0.1" value="45"
             oninput="updateDetour(this.value)" style="flex:1;">
-          <span style="font-size:0.75rem; color:var(--muted); white-space:nowrap;">목적지</span>
+          <span style="font-size:0.75rem; color:var(--accent); white-space:nowrap;">목적지</span>
         </div>
       </div>
     </div>
@@ -1301,13 +1303,18 @@ function shouldShowPharmacyBanner() {
 }
 
 // ─────────────────────────────────────────
-// 탐색범위 슬라이더 (v4.3.0: 경로 진행 비율)
+// 탐색범위 슬라이더 (v4.3.1: continuous, sliderVal% = 탐색 비율)
 // ─────────────────────────────────────────
 function updateDetour(val) {
-  const v = parseInt(val);
-  const pct = v === 1 ? 33 : v === 2 ? 66 : 100;
   const el = document.getElementById('detourSlider');
-  el.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--border) ${pct}%)`;
+  let v = parseFloat(val);
+  if (v < 12) { v = 12; el.value = 12; }     // 왼쪽 한계 12%
+  const thumbW = 10;
+  const trackW = el.getBoundingClientRect().width;
+  const usable = trackW - thumbW;
+  const thumbLeft = v / 100 * usable + thumbW / 2;
+  const pct = thumbLeft / trackW * 100;
+  el.style.background = `linear-gradient(to right, var(--accent) ${pct.toFixed(2)}%, var(--border) ${pct.toFixed(2)}%)`;
 }
 
 // ─────────────────────────────────────────
@@ -1952,8 +1959,8 @@ async function doSearch() {
     if (!cats.some(c => c._keyword === '버스터미널')) cats.push({ cat: 'SW8', icon: '🚉', label: '역·터미널', _keyword: '버스터미널' });
   }
 
-  const _sv = parseInt(document.getElementById('detourSlider').value);
-  const routeRatio = _sv === 1 ? 0.33 : _sv === 2 ? 0.66 : 1.0; // v4.3.0: 경로 진행 비율
+  const _sv = parseFloat(document.getElementById('detourSlider').value);
+  const routeRatio = _sv / 100; // v4.3.1: 슬라이더 % 그대로 탐색 비율로
 
   document.getElementById('btnSearch').disabled = true;
   document.getElementById('loadingText').textContent = '출발지 검색 중...';
