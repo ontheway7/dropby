@@ -2088,8 +2088,8 @@ function drawRoute(startC, endC, places, routeData) {
       const dy = coords[i].lat - coords[i-1].lat;
       totalDist += Math.sqrt(dx*dx + dy*dy);
     }
-    // 화살표 개수: 경로 길이에 따라 4~10개
-    const arrowCount = Math.min(10, Math.max(4, Math.floor(coords.length / 15)));
+    // 화살표 개수: 경로 길이에 따라 8~20개 (2배)
+    const arrowCount = Math.min(20, Math.max(8, Math.floor(coords.length / 8)));
     const interval = totalDist / (arrowCount + 1);
 
     let accumulated = 0;
@@ -2100,12 +2100,11 @@ function drawRoute(startC, endC, places, routeData) {
       const segDist = Math.sqrt(dx*dx + dy*dy);
       accumulated += segDist;
       if (accumulated >= interval * arrowIdx) {
-        // 이 구간에서 화살표 배치
         const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-        // 위도/경도 → 화면 각도 보정 (카카오맵은 y축 반전)
         const screenAngle = -angle;
         const pos = new kakao.maps.LatLng(coords[i].lat, coords[i].lng);
-        const arrowHtml = `<div style="width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:15px solid #4ade80;transform:rotate(${screenAngle}deg);transform-origin:center;opacity:0.9;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))"></div>`;
+        // 3번 스타일 쐐기 (꼬리 있는 쐐기, 1.5배 크기)
+        const arrowHtml = `<div style="transform:rotate(${screenAngle}deg);transform-origin:center;opacity:0.9;width:18px;height:18px;display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 18,9 0,18 4,9" fill="#4ade80" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35))"/></svg></div>`;
         const overlay = new kakao.maps.CustomOverlay({
           map: kakaoMap,
           position: pos,
