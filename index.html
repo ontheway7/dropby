@@ -647,7 +647,7 @@ input[type=range]::-webkit-slider-thumb {
         <div style="display:flex; align-items:center; gap:10px; padding:4px 0 8px;">
           <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🔍 탐색범위</span>
           <span style="font-size:0.75rem; color:var(--accent); white-space:nowrap;">출발지</span>
-          <input type="range" id="detourSlider" min="0" max="100" step="0.1" value="50"
+          <input type="range" id="detourSlider" min="0" max="100" step="0.1" value="45"
             oninput="updateDetour(this.value)" style="flex:1;">
           <span style="font-size:0.75rem; color:var(--accent); white-space:nowrap;">목적지</span>
         </div>
@@ -2286,17 +2286,18 @@ function openNaver(idx) {
 }
 
 // ─────────────────────────────────────────
-// v4.2.21: 지도로 보기 — 해당 장소 위치로 지도 전체화면 + 100m 줌
+// v4.3.1: 지도로 보기 — relayout 완료 후 setCenter/setLevel
 function goToMap(idx) {
   const place = searchResult.places[idx];
   if (!place || !kakaoMap) return;
   closeSheet();
   openMapFullscreen();
   setTimeout(() => {
+    kakaoMap.relayout();
     const center = new kakao.maps.LatLng(place.lat, place.lng);
     kakaoMap.setCenter(center);
     kakaoMap.setLevel(3); // 약 100m 스케일
-  }, 320);
+  }, 350);
 }
 
 // v2.4: 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
