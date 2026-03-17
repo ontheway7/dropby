@@ -931,6 +931,10 @@ function drawPlaceMarkers(places) {
 
 function goToCard(placeId) {
   closeMapFullscreen();
+  // v4.2.21: 지도 초기 bounds 복원
+  if (window._initialMapBounds && kakaoMap) {
+    setTimeout(() => kakaoMap.setBounds(window._initialMapBounds), 320);
+  }
   // 지도 fullscreen transition(300ms) 완료 후 시트 열기
   setTimeout(() => {
     document.getElementById('sheet').classList.add('open');
@@ -2084,6 +2088,7 @@ function drawRoute(startC, endC, places, routeData) {
   bounds.extend(sLL); bounds.extend(eLL);
   markerPlaces.forEach(p => bounds.extend(new kakao.maps.LatLng(p.lat, p.lng)));
   kakaoMap.setBounds(bounds);
+  window._initialMapBounds = bounds; // v4.2.21: 초기 bounds 저장
 
   const totalKm = (routeData.totalDist / 1000).toFixed(1);
   const totalMin = Math.round(routeData.totalSec / 60);
@@ -2223,7 +2228,7 @@ function goToMap(idx) {
   setTimeout(() => {
     const center = new kakao.maps.LatLng(place.lat, place.lng);
     kakaoMap.setCenter(center);
-    kakaoMap.setLevel(1); // 약 30m 스케일
+    kakaoMap.setLevel(3); // 약 100m 스케일
   }, 320);
 }
 
