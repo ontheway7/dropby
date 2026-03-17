@@ -59,7 +59,9 @@
                        슬라이더 레이블 변경: "좁게/넓게" → "출발지/목적지"
                        슬라이더 3단계 스냅 (33% / 66% / 100%), 기본값 중간(66%)
                        슬라이더 왼쪽 누적 초록 색상 추가
-
+  v4.3.1  - 2026.03.18 슬라이더를 연속형으로 변경 
+                       슬라이더의 범위에 맞게 연속적으로 탑색 범위 결정
+                       정렬 불일치 및 카드/마커 불일치 해결
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
 -->
@@ -565,7 +567,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1c</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -1763,35 +1765,22 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     try {
       await calcDetourMinBatch(_startC, _endC, filtered, _totalSec);
       filtered.forEach(r => { if (r.detourExact == null) r.detourExact = false; });
-      // fromStartMin 기준으로 filtered 배열 재정렬
-      filtered.sort((a, b) => {
-        if (a.detourExact && b.detourExact) return a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin;
-        if (a.detourExact) return -1;
-        if (b.detourExact) return 1;
-        return a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin;
-      });
+      // fromStartMin 기준으로 filtered 배열 재정렬 (detourExact 우선순위 제거)
+      filtered.sort((a, b) => a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin);
       // searchResult.places도 같은 순서로 업데이트 (탭 전환 시 순서 유지)
       if (searchResult) searchResult.places = [...filtered];
-      // DOM 재정렬 (주유소 저가순 상태면 건너뜀)
-      const sheet = document.getElementById('resultList');
-      if (sheet && !(currentSingleCat === 'OL7' && ol7SortByPrice)) {
-        const order = {};
-        filtered.forEach((r, i) => { order[r.id] = i; });
-        const cards = Array.from(sheet.querySelectorAll('.result-card'));
-        cards.sort((a, b) => (order[a.dataset.id] ?? 999) - (order[b.dataset.id] ?? 999));
-        cards.forEach(c => sheet.appendChild(c));
+      // 카드 재렌더 (정렬 반영)
+      if (currentSingleCat && CAT_SUBTABS[currentSingleCat]) {
+        applySubTabFilter(currentSingleCat, filtered);
+      } else {
+        renderCards(filtered);
+        drawPlaceMarkers(filtered);
       }
-      // 이탈시간 초과된 카드만 숨기고, 나머지는 숫자만 업데이트 (리렌더 없음)
+      // 이탈시간 초과된 카드 숨김
       filtered.forEach(r => {
-        const el = document.getElementById('detour-' + r.id);
-        if (!el) return;
-        const card = el.closest('.result-card');
-        if (!card) return;
         if (r.detourExact && r.detourMin > maxDetourMin) {
-          card.style.display = 'none'; // 정확값 기준 초과 시 조용히 숨김
-        } else {
-          const fsEl = document.getElementById('fromstart-' + r.id);
-          if (fsEl) fsEl.textContent = '🕐 출발지에서 ' + r.fromStartMin + '분';
+          const card = document.getElementById('card-' + r.id);
+          if (card) card.style.display = 'none';
         }
       });
       // sheetCount 업데이트
@@ -1997,13 +1986,19 @@ async function doSearch() {
     }
 
     document.getElementById('loadingText').textContent = '경로 주변 장소 탐색 중...';
-    // v4.3.0: 슬라이더 비율에 따라 경로 좌표 잘라서 탐색
+    // v4.3.1: 슬라이더 비율에 따라 경로 좌표 잘라서 탐색
+    // totalDist는 잘린 coords 기준으로 재계산 (cumTimeSec 정확도 유지)
     const slicedRouteData = { ...routeData };
     if (routeRatio < 1.0) {
       const cutIdx = Math.max(2, Math.floor(routeData.coords.length * routeRatio));
       slicedRouteData.coords = routeData.coords.slice(0, cutIdx);
-      slicedRouteData.totalDist = routeData.totalDist * routeRatio;
-      slicedRouteData.totalSec = routeData.totalSec * routeRatio;
+      // 잘린 구간의 실제 거리 재계산
+      let slicedDist = 0;
+      for (let i = 1; i < slicedRouteData.coords.length; i++) {
+        slicedDist += distKm(slicedRouteData.coords[i-1], slicedRouteData.coords[i]) * 1000;
+      }
+      slicedRouteData.totalDist = slicedDist;
+      slicedRouteData.totalSec = routeData.totalSec * (slicedDist / routeData.totalDist);
     }
     let places;
     try {
@@ -2290,16 +2285,27 @@ function goToMap(idx) {
   const place = searchResult.places[idx];
   if (!place || !kakaoMap) return;
   closeSheet();
-  openMapFullscreen();
+  const mapEl = document.getElementById('map');
+  const alreadyFullscreen = mapEl.classList.contains('fullscreen');
+  mapEl.classList.add('fullscreen');
   const center = new kakao.maps.LatLng(place.lat, place.lng);
-  setTimeout(() => {
+
+  const doCenter = () => {
     kakaoMap.relayout();
     kakaoMap.setLevel(3);
     kakaoMap.setCenter(center);
-  }, 350);
-  setTimeout(() => {
-    kakaoMap.setCenter(center);
-  }, 700);
+    // rAF로 브라우저 렌더 후 한 번 더 보정
+    requestAnimationFrame(() => {
+      kakaoMap.relayout();
+      kakaoMap.setCenter(center);
+    });
+  };
+
+  if (alreadyFullscreen) {
+    requestAnimationFrame(doCenter);
+  } else {
+    setTimeout(doCenter, 350);
+  }
 }
 
 // v2.4: 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
@@ -2358,6 +2364,25 @@ function closeMapFullscreen() {
   setTimeout(() => kakaoMap.relayout(), 300);
 }
 
+// 지도로 보기 — fullscreen 여부 무관하게 항상 정확한 중심 이동
+function goToMap(idx) {
+  const place = searchResult.places[idx];
+  if (!place || !kakaoMap) return;
+  closeSheet();
+  const mapEl = document.getElementById('map');
+  const alreadyFullscreen = mapEl.classList.contains('fullscreen');
+  mapEl.classList.add('fullscreen');
+  const center = new kakao.maps.LatLng(place.lat, place.lng);
+  // fullscreen 전환 시간 대기 후 relayout → setCenter
+  const delay = alreadyFullscreen ? 50 : 350;
+  setTimeout(() => {
+    kakaoMap.relayout();
+    kakaoMap.setLevel(3);
+    kakaoMap.setCenter(center);
+    // 한 번 더 보정 (렌더링 안정화)
+    setTimeout(() => kakaoMap.setCenter(center), 100);
+  }, delay);
+}
 function setupBackGuard() {
   history.pushState(null, '', location.href);
   window.addEventListener('popstate', () => {
