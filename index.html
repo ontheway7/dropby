@@ -54,6 +54,7 @@
                        카드 버튼 순서 변경: "지도로 보기" 왼쪽, "여기 들르기" 오른쪽
                        "카카오맵 연결" → "지도로 보기" 이름 변경
                        "지도로 보기" 클릭 시 지도 전체화면 + 해당 위치 중심 + 100m 줌
+  v4.2.22 - 2026.03.18 경로선 위에 방향 쐐기 화살표 추가 (A스타일, 1.5배 크기)
 
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
@@ -559,7 +560,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.21</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.22</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -750,6 +751,7 @@ let geocoder = null;
 let markers = [];
 let placeMarkers = []; // 장소 마커 (출발/도착 제외)
 let polyline = null;
+let arrowOverlays = []; // v4.2.22: 경로 방향 화살표
 let coords = {};
 let acTimers = {};
 let selectedIcon = '📍';
@@ -2061,6 +2063,7 @@ function drawRoute(startC, endC, places, routeData) {
   markers.forEach(m => m.setMap(null)); markers = [];
   placeMarkers.forEach(m => m.setMap(null)); placeMarkers = [];
   if (polyline) polyline.setMap(null);
+  arrowOverlays.forEach(o => o.setMap(null)); arrowOverlays = [];
 
   const sLL = new kakao.maps.LatLng(startC.lat, startC.lng);
   const eLL = new kakao.maps.LatLng(endC.lat, endC.lng);
@@ -2074,6 +2077,47 @@ function drawRoute(startC, endC, places, routeData) {
     map: kakaoMap, path,
     strokeWeight: 5, strokeColor: '#4ade80', strokeOpacity: 0.8, strokeStyle: 'solid'
   });
+
+  // v4.2.22: 경로 방향 쐐기 화살표
+  const coords = routeData?.coords || [startC, endC];
+  if (coords.length >= 2) {
+    // 전체 경로 거리 계산
+    let totalDist = 0;
+    for (let i = 1; i < coords.length; i++) {
+      const dx = coords[i].lng - coords[i-1].lng;
+      const dy = coords[i].lat - coords[i-1].lat;
+      totalDist += Math.sqrt(dx*dx + dy*dy);
+    }
+    // 화살표 개수: 경로 길이에 따라 4~10개
+    const arrowCount = Math.min(10, Math.max(4, Math.floor(coords.length / 15)));
+    const interval = totalDist / (arrowCount + 1);
+
+    let accumulated = 0;
+    let arrowIdx = 1;
+    for (let i = 1; i < coords.length && arrowIdx <= arrowCount; i++) {
+      const dx = coords[i].lng - coords[i-1].lng;
+      const dy = coords[i].lat - coords[i-1].lat;
+      const segDist = Math.sqrt(dx*dx + dy*dy);
+      accumulated += segDist;
+      if (accumulated >= interval * arrowIdx) {
+        // 이 구간에서 화살표 배치
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        // 위도/경도 → 화면 각도 보정 (카카오맵은 y축 반전)
+        const screenAngle = -angle;
+        const pos = new kakao.maps.LatLng(coords[i].lat, coords[i].lng);
+        const arrowHtml = `<div style="width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:15px solid #4ade80;transform:rotate(${screenAngle}deg);transform-origin:center;opacity:0.9;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3))"></div>`;
+        const overlay = new kakao.maps.CustomOverlay({
+          map: kakaoMap,
+          position: pos,
+          content: arrowHtml,
+          xAnchor: 0.5,
+          yAnchor: 0.5
+        });
+        arrowOverlays.push(overlay);
+        arrowIdx++;
+      }
+    }
+  }
 
   const mkLabel = (ll, html) => {
     markers.push(new kakao.maps.CustomOverlay({ map: kakaoMap, position: ll, content: html, yAnchor: 1.5 }));
