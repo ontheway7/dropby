@@ -1289,6 +1289,7 @@ function applySubTabFilter(catCode, places) {
     }
   }
   renderCards(filtered);
+  drawPlaceMarkers(filtered);
   document.getElementById('sheetCount').textContent = `${filtered.length}곳 발견`;
 }
 
@@ -2286,18 +2287,31 @@ function openNaver(idx) {
 }
 
 // ─────────────────────────────────────────
-// v4.3.1: 지도로 보기 — relayout 완료 후 setCenter/setLevel
+// v4.3.1: 지도로 보기 — tilesloaded 이벤트 + setTimeout 이중 보정
 function goToMap(idx) {
   const place = searchResult.places[idx];
   if (!place || !kakaoMap) return;
   closeSheet();
   openMapFullscreen();
-  setTimeout(() => {
+  const center = new kakao.maps.LatLng(place.lat, place.lng);
+  let centered = false;
+
+  const doCenter = () => {
+    if (centered) return;
+    centered = true;
     kakaoMap.relayout();
-    const center = new kakao.maps.LatLng(place.lat, place.lng);
+    kakaoMap.setLevel(3);
     kakaoMap.setCenter(center);
-    kakaoMap.setLevel(3); // 약 100m 스케일
-  }, 350);
+  };
+
+  // tilesloaded: 타일 로딩 완료 시점 (PC/모바일 모두 안정적으로 firing)
+  kakao.maps.event.addListener(kakaoMap, 'tilesloaded', function onTiles() {
+    kakao.maps.event.removeListener(kakaoMap, 'tilesloaded', onTiles);
+    doCenter();
+  });
+
+  // 안전망: tilesloaded가 늦거나 안 오는 경우
+  setTimeout(doCenter, 400);
 }
 
 // v2.4: 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
