@@ -55,6 +55,10 @@
                        "카카오맵 연결" → "지도로 보기" 이름 변경
                        "지도로 보기" 클릭 시 지도 전체화면 + 해당 위치 중심 + 100m 줌
   v4.2.22 - 2026.03.18 경로선 위에 방향 쐐기 화살표 추가 (A스타일, 1.5배 크기)
+  v4.3.0  - 2026.03.18 탐색 범위 개념 변경: 이탈시간 → 경로 진행 비율
+                       슬라이더 레이블 변경: "좁게/넓게" → "출발지/목적지"
+                       슬라이더 3단계 스냅 (33% / 66% / 100%), 기본값 중간(66%)
+                       슬라이더 왼쪽 누적 초록 색상 추가
 
   경로 위 장소 자동 탐색 앱
   카카오맵 API 기반 | ontheway7.github.io/dropby
@@ -325,7 +329,8 @@ html,body { height:100%; background:var(--bg); color:var(--text); font-family:'N
 .slider-label strong { color:var(--accent); font-family:'Black Han Sans',sans-serif; }
 input[type=range] {
   -webkit-appearance:none; width:100%; height:3px; border-radius:3px;
-  background:var(--border); outline:none; cursor:pointer;
+  background:linear-gradient(to right, var(--accent) 66%, var(--border) 66%);
+  outline:none; cursor:pointer;
 }
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance:none; width:10px; height:10px;
@@ -560,7 +565,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.2.22</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.0</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -635,13 +640,14 @@ input[type=range]::-webkit-slider-thumb {
         </div>
       </div>
 
-      <!-- 우회 시간 -->
+      <!-- 탐색 범위 -->
       <div class="section" style="padding-bottom:4px;">
         <div style="display:flex; align-items:center; gap:10px; padding:4px 0 8px;">
-          <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🔍 경로상 탐색범위</span>
-          <input type="range" id="detourSlider" min="1" max="3" step="0.01" value="1.2"
+          <span style="font-size:0.78rem; color:var(--muted); white-space:nowrap;">🔍 탐색범위</span>
+          <span style="font-size:0.75rem; color:var(--accent); white-space:nowrap;">출발지</span>
+          <input type="range" id="detourSlider" min="1" max="3" step="1" value="2"
             oninput="updateDetour(this.value)" style="flex:1;">
-          <span id="detourVal" style="color:var(--accent);font-size:0.82rem;white-space:nowrap;min-width:36px;text-align:right;">좁게</span>
+          <span style="font-size:0.75rem; color:var(--muted); white-space:nowrap;">목적지</span>
         </div>
       </div>
     </div>
@@ -840,6 +846,8 @@ async function initApp() {
     }
     setupInputs();
     setupBackGuard();
+    // v4.3.0: 슬라이더 초기 누적 색상 설정
+    updateDetour(document.getElementById('detourSlider').value);
     // 디폴트 카테고리 설정 (원하는 data-cat 값으로 변경, 없애려면 아래 document 코드 삭제)
     document.querySelector('.cat-chip[data-cat="FD6"]')?.click();
   } catch(e) {
@@ -1293,12 +1301,13 @@ function shouldShowPharmacyBanner() {
 }
 
 // ─────────────────────────────────────────
-// 우회 슬라이더
+// 탐색범위 슬라이더 (v4.3.0: 경로 진행 비율)
 // ─────────────────────────────────────────
 function updateDetour(val) {
-  const v = parseFloat(val);
-  const label = v <= 1.5 ? '좁게' : v <= 2.5 ? '보통' : '넓게';
-  document.getElementById('detourVal').textContent = label;
+  const v = parseInt(val);
+  const pct = v === 1 ? 33 : v === 2 ? 66 : 100;
+  const el = document.getElementById('detourSlider');
+  el.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--border) ${pct}%)`;
 }
 
 // ─────────────────────────────────────────
@@ -1943,8 +1952,8 @@ async function doSearch() {
     if (!cats.some(c => c._keyword === '버스터미널')) cats.push({ cat: 'SW8', icon: '🚉', label: '역·터미널', _keyword: '버스터미널' });
   }
 
-  const _sv = parseFloat(document.getElementById('detourSlider').value);
-  const maxDetour = _sv <= 1.5 ? 8 : _sv <= 2.5 ? 20 : 45;
+  const _sv = parseInt(document.getElementById('detourSlider').value);
+  const routeRatio = _sv === 1 ? 0.33 : _sv === 2 ? 0.66 : 1.0; // v4.3.0: 경로 진행 비율
 
   document.getElementById('btnSearch').disabled = true;
   document.getElementById('loadingText').textContent = '출발지 검색 중...';
@@ -1982,9 +1991,17 @@ async function doSearch() {
     }
 
     document.getElementById('loadingText').textContent = '경로 주변 장소 탐색 중...';
+    // v4.3.0: 슬라이더 비율에 따라 경로 좌표 잘라서 탐색
+    const slicedRouteData = { ...routeData };
+    if (routeRatio < 1.0) {
+      const cutIdx = Math.max(2, Math.floor(routeData.coords.length * routeRatio));
+      slicedRouteData.coords = routeData.coords.slice(0, cutIdx);
+      slicedRouteData.totalDist = routeData.totalDist * routeRatio;
+      slicedRouteData.totalSec = routeData.totalSec * routeRatio;
+    }
     let places;
     try {
-      places = await searchPlacesAlongRoute(startC, endC, cats, maxDetour, routeData);
+      places = await searchPlacesAlongRoute(startC, endC, cats, 45, slicedRouteData);
     } catch(searchErr) {
       if (searchErr.message === 'KAKAO_QUOTA') {
         alert('이번 달 이용 한도를 초과했어요.');
