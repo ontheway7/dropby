@@ -567,7 +567,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1a</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -2287,31 +2287,16 @@ function openNaver(idx) {
 }
 
 // ─────────────────────────────────────────
-// v4.3.1: 지도로 보기 — tilesloaded 이벤트 + setTimeout 이중 보정
+// v4.3.1: 지도로 보기 — relayout 완료 콜백 후 setCenter
 function goToMap(idx) {
   const place = searchResult.places[idx];
   if (!place || !kakaoMap) return;
   closeSheet();
-  openMapFullscreen();
   const center = new kakao.maps.LatLng(place.lat, place.lng);
-  let centered = false;
-
-  const doCenter = () => {
-    if (centered) return;
-    centered = true;
-    kakaoMap.relayout();
+  openMapFullscreen(() => {
     kakaoMap.setLevel(3);
     kakaoMap.setCenter(center);
-  };
-
-  // tilesloaded: 타일 로딩 완료 시점 (PC/모바일 모두 안정적으로 firing)
-  kakao.maps.event.addListener(kakaoMap, 'tilesloaded', function onTiles() {
-    kakao.maps.event.removeListener(kakaoMap, 'tilesloaded', onTiles);
-    doCenter();
   });
-
-  // 안전망: tilesloaded가 늦거나 안 오는 경우
-  setTimeout(doCenter, 400);
 }
 
 // v2.4: 카카오맵 연결 (대중교통, 출발=현위치, 목적지=가게)
@@ -2359,11 +2344,17 @@ function closeSheet() {
   document.getElementById('bottomWrap').style.display = '';
 }
 
-function openMapFullscreen() {
+function openMapFullscreen(callback) {
   const mapEl = document.getElementById('map');
-  if (mapEl.classList.contains('fullscreen')) return;
+  if (mapEl.classList.contains('fullscreen')) {
+    if (callback) callback();
+    return;
+  }
   mapEl.classList.add('fullscreen');
-  setTimeout(() => kakaoMap.relayout(), 300);
+  setTimeout(() => {
+    kakaoMap.relayout();
+    if (callback) callback();
+  }, 350);
 }
 function closeMapFullscreen() {
   document.getElementById('map').classList.remove('fullscreen');
