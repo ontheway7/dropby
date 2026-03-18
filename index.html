@@ -570,7 +570,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.3</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.3a</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -2669,7 +2669,7 @@ async function exportPlaces() {
   const blob = new Blob([json], { type: 'application/json' });
 
   // Web Share API 지원 시 (모바일 안드로이드/iOS)
-  if (navigator.canShare && navigator.canShare({ files: [new File([blob], fileName, { type: 'application/json' })] })) {
+  if (navigator.share) {
     try {
       await navigator.share({
         files: [new File([blob], fileName, { type: 'application/json' })],
@@ -2678,6 +2678,7 @@ async function exportPlaces() {
       return;
     } catch(e) {
       if (e.name === 'AbortError') return; // 사용자가 취소
+      // share 실패 시 다운로드 방식으로 폴백
     }
   }
   // 미지원 시 기존 다운로드 방식
