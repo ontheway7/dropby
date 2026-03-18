@@ -500,7 +500,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.1</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.2</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -1702,18 +1702,25 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
       filtered.sort((a, b) => a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin);
       // searchResult.places도 같은 순서로 업데이트 (탭 전환 시 순서 유지)
       if (searchResult) searchResult.places = [...filtered];
-      // 카드 재렌더 (정렬 반영)
-      if (currentSingleCat && CAT_SUBTABS[currentSingleCat]) {
-        applySubTabFilter(currentSingleCat, filtered);
-      } else {
-        renderCards(filtered);
-        drawPlaceMarkers(filtered);
+      // DOM 재정렬 — 카드는 그대로, 순서만 조용히 변경 (깜빡임 없음, 스크롤 유지)
+      const sheet = document.getElementById('resultList');
+      if (sheet && !(currentSingleCat === 'OL7' && ol7SortByPrice)) {
+        const order = {};
+        filtered.forEach((r, i) => { order[r.id] = i; });
+        const cards = Array.from(sheet.querySelectorAll('.result-card'));
+        cards.sort((a, b) => (order[a.dataset.id] ?? 999) - (order[b.dataset.id] ?? 999));
+        cards.forEach(c => sheet.appendChild(c));
       }
-      // 이탈시간 초과된 카드 숨김
+      // 숫자만 조용히 업데이트 + 초과 카드 숨김
       filtered.forEach(r => {
+        const fsEl = document.getElementById('fromstart-' + r.id);
+        if (!fsEl) return;
+        const card = fsEl.closest('.result-card');
+        if (!card) return;
         if (r.detourExact && r.detourMin > maxDetourMin) {
-          const card = document.getElementById('card-' + r.id);
-          if (card) card.style.display = 'none';
+          card.style.display = 'none';
+        } else {
+          fsEl.textContent = '🕐 출발지에서 ' + r.fromStartMin + '분';
         }
       });
       // sheetCount 업데이트
