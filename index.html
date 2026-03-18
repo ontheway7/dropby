@@ -1686,53 +1686,23 @@ async function searchPlacesAlongRoute(startC, endC, cats, maxDetourMin, routeDat
     }
   }
 
-  // v4.2.17: 초기 정렬은 detourMin 기준 (fromStartMin 추정값 부정확)
-  // 백그라운드 API 완료 후 fromStartMin(실API) 기준으로 재정렬
+  // v4.3.2: 정렬 완료 후 카드 노출 (깜빡임 제거)
   results.forEach(r => { r.detourExact = false; });
   const filtered = results.filter(r => r.detourMin <= maxDetourMin * 1.5);
   filtered.sort((a, b) => a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin);
 
-  // 백그라운드에서 이탈시간 정확값 계산 후 숫자만 조용히 업데이트 (깜박임 없음)
+  // 실제 도로 기준 정렬 (스피너 유지 중 처리)
   const _startC = startC, _endC = endC, _totalSec = totalSec;
-  setTimeout(async () => {
-    try {
-      await calcDetourMinBatch(_startC, _endC, filtered, _totalSec);
-      filtered.forEach(r => { if (r.detourExact == null) r.detourExact = false; });
-      // fromStartMin 기준으로 filtered 배열 재정렬 (detourExact 우선순위 제거)
-      filtered.sort((a, b) => a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin);
-      // searchResult.places도 같은 순서로 업데이트 (탭 전환 시 순서 유지)
-      if (searchResult) searchResult.places = [...filtered];
-      // DOM 재정렬 — 카드는 그대로, 순서만 조용히 변경 (깜빡임 없음, 스크롤 유지)
-      const sheet = document.getElementById('resultList');
-      if (sheet && !(currentSingleCat === 'OL7' && ol7SortByPrice)) {
-        const order = {};
-        filtered.forEach((r, i) => { order[r.id] = i; });
-        const cards = Array.from(sheet.querySelectorAll('.result-card'));
-        cards.sort((a, b) => (order[a.dataset.id] ?? 999) - (order[b.dataset.id] ?? 999));
-        cards.forEach(c => sheet.appendChild(c));
-      }
-      // 숫자만 조용히 업데이트 + 초과 카드 숨김
-      filtered.forEach(r => {
-        const fsEl = document.getElementById('fromstart-' + r.id);
-        if (!fsEl) return;
-        const card = fsEl.closest('.result-card');
-        if (!card) return;
-        if (r.detourExact && r.detourMin > maxDetourMin) {
-          card.style.display = 'none';
-        } else {
-          fsEl.textContent = '🕐 출발지에서 ' + r.fromStartMin + '분';
-        }
-      });
-      // sheetCount 업데이트
-      if (searchResult) {
-        const visibleCount = filtered.filter(r => !r.detourExact || r.detourMin <= maxDetourMin).length;
-        document.getElementById('sheetCount').textContent = visibleCount + '곳 발견';
-        searchResult.places = filtered.filter(r => !r.detourExact || r.detourMin <= maxDetourMin);
-      }
-    } catch(e) {
-      // 실패 시 추정값 유지, 아무것도 안 함
-    }
-  }, 100);
+  try {
+    await calcDetourMinBatch(_startC, _endC, filtered, _totalSec);
+    filtered.forEach(r => { if (r.detourExact == null) r.detourExact = false; });
+    filtered.sort((a, b) => a.fromStartMin - b.fromStartMin || a.detourMin - b.detourMin);
+    // 초과 장소 제거
+    const visibleFiltered = filtered.filter(r => !r.detourExact || r.detourMin <= maxDetourMin);
+    return visibleFiltered;
+  } catch(e) {
+    // API 실패 시 추정값 정렬 그대로 반환
+  }
 
   return filtered;
 }
@@ -1988,6 +1958,7 @@ async function doSearch() {
       }
     }
 
+    document.getElementById('loadingText').textContent = '출발지에서 가까운 순으로 정렬 중...';
     searchResult = { startC, endC, places, startName, endName };
     drawRoute(startC, endC, places, routeData);
     showResults(places);
