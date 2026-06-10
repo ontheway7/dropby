@@ -500,7 +500,7 @@ input[type=range]::-webkit-slider-thumb {
   <div class="header">
     <div class="logo">
       <span class="logo-main">가는 길에</span>
-      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.3</span></span>
+      <span class="logo-sub"><span style="font-size:0.65rem;opacity:0.6;letter-spacing:0">v4.3.4</span></span>
     </div>
     <div style="display:flex;gap:6px;">
       <button class="btn-header" onclick="openPlacesModal()">📌 내 장소</button>
@@ -767,28 +767,32 @@ async function initApp() {
       if (e.target.tagName === 'CANVAS') openMapFullscreen(); // 카카오 지도 캔버스 직접 클릭
     });
     if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_KEY);
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
-        myCurrentLat = pos.coords.latitude;
-        myCurrentLng = pos.coords.longitude;
-        kakaoMap.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
-        kakaoMap.setLevel(8);
-        reverseGeocode(pos.coords.latitude, pos.coords.longitude, addr => {
-          document.getElementById('fi-start').value = addr;
-          coords[addr] = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          myCurrentLat = pos.coords.latitude;
+          myCurrentLng = pos.coords.longitude;
+          kakaoMap.setCenter(new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude));
+          kakaoMap.setLevel(8);
+          reverseGeocode(pos.coords.latitude, pos.coords.longitude, addr => {
+            document.getElementById('fi-start').value = addr;
+            coords[addr] = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          });
         });
-      });
+        // v4.3.4: 위치 권한 변화 감지 → 자동 재시도
+        navigator.permissions?.query({ name: 'geolocation' }).then(permStatus => {
+          permStatus.onchange = () => {
+            if (permStatus.state === 'granted') useCurrentLocation();
+          };
+        });
+      }
+      setupInputs();
+      setupBackGuard();
+      updateDetour(document.getElementById('detourSlider').value);
+      document.querySelector('.cat-chip[data-cat="FD6"]')?.click();
+    } catch(e) {
+      showToast('⚠️ 지도 로드 실패');
     }
-    setupInputs();
-    setupBackGuard();
-    // v4.3.0: 슬라이더 초기 누적 색상 설정
-    updateDetour(document.getElementById('detourSlider').value);
-    // 디폴트 카테고리 설정 (원하는 data-cat 값으로 변경, 없애려면 아래 document 코드 삭제)
-    document.querySelector('.cat-chip[data-cat="FD6"]')?.click();
-  } catch(e) {
-    showToast('⚠️ 지도 로드 실패');
   }
-}
 
 // ─────────────────────────────────────────
 // 현재 위치
